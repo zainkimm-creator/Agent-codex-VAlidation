@@ -1,0 +1,166 @@
+# configs/plants_p01_p10.yaml
+# Source: professor reply email + supplementary table for regime/overshoot labels.
+# Roller order: [UW, Nip, RW]. Span order for L: [span0, span1, span2].
+# Note: no b parameter; b_i in supplement is a typo for f_i.
+
+plants:
+  P01:
+    pool_id: "P001"
+    material: "PE"
+    scale: "lab"
+    regime: "O-UD"
+    EA_N: 3200
+    v_ref_mps: 0.5
+    T_ref_N: 12.0
+    T_max_N: 40.0
+    zeta_CL_min: 0.151
+    overshoot_percent: 45.8
+    R_m: [0.15, 0.1, 0.15]
+    J_kgm2: [0.11126, 0.265196, 0.11126]
+    f_Nms_per_rad: [0.707698, 1.0, 0.707698]
+    L_m: [2.0, 3.0, 3.0]
+    noise_sigma_N_0p3pct_Tmax: 0.12
+  P02:
+    pool_id: "P049"
+    material: "PET"
+    scale: "lab"
+    regime: "O-UD"
+    EA_N: 9600
+    v_ref_mps: 0.3
+    T_ref_N: 64.8
+    T_max_N: 216.0
+    zeta_CL_min: 0.237
+    overshoot_percent: 45.3
+    R_m: [0.2, 0.1, 0.2]
+    J_kgm2: [0.359562, 0.193405, 0.359562]
+    f_Nms_per_rad: [3.0, 0.163318, 3.0]
+    L_m: [3.0, 2.0, 2.0]
+    noise_sigma_N_0p3pct_Tmax: 0.648
+  P03:
+    pool_id: "P053"
+    material: "PET"
+    scale: "lab"
+    regime: "H-Osc"
+    EA_N: 40000
+    v_ref_mps: 0.5
+    T_ref_N: 270.0
+    T_max_N: 900.0
+    zeta_CL_min: 0.35
+    overshoot_percent: 28.8
+    R_m: [0.2, 0.1, 0.2]
+    J_kgm2: [0.445464, 0.097544, 0.445464]
+    f_Nms_per_rad: [1.685698, 0.278819, 1.685698]
+    L_m: [2.0, 2.0, 3.0]
+    noise_sigma_N_0p3pct_Tmax: 2.7
+  P04:
+    pool_id: "P060"
+    material: "PET"
+    scale: "pilot"
+    regime: "O-UD"
+    EA_N: 50000
+    v_ref_mps: 3.0
+    T_ref_N: 337.5
+    T_max_N: 1125.0
+    zeta_CL_min: 0.201
+    overshoot_percent: 41.0
+    R_m: [0.25, 0.1, 0.25]
+    J_kgm2: [2.382481, 0.403738, 2.382481]
+    f_Nms_per_rad: [10.0, 2.998943, 10.0]
+    L_m: [3.0, 10.0, 5.0]
+    noise_sigma_N_0p3pct_Tmax: 3.375
+  P05:
+    pool_id: "P139"
+    material: "Paper"
+    scale: "prod"
+    regime: "O-UD"
+    EA_N: 144000
+    v_ref_mps: 3.0
+    T_ref_N: 216.0
+    T_max_N: 720.0
+    zeta_CL_min: 0.144
+    overshoot_percent: 50.1
+    R_m: [0.75, 0.2, 0.75]
+    J_kgm2: [90.373903, 8.416216, 90.373903]
+    f_Nms_per_rad: [3.497247, 0.319941, 3.497247]
+    L_m: [5.0, 20.0, 8.0]
+    noise_sigma_N_0p3pct_Tmax: 2.16
+  P06:
+    pool_id: "P158"
+    material: "Al"
+    scale: "lab"
+    regime: "H-Damp"
+    EA_N: 310500
+    v_ref_mps: 0.3
+    T_ref_N: 229.5
+    T_max_N: 765.0
+    zeta_CL_min: 0.515
+    overshoot_percent: 9.8
+    R_m: [0.2, 0.1, 0.2]
+    J_kgm2: [0.494378, 0.180335, 0.494378]
+    f_Nms_per_rad: [3.0, 1.0, 3.0]
+    L_m: [2.0, 3.0, 3.0]
+    noise_sigma_N_0p3pct_Tmax: 2.295
+  P07:
+    pool_id: "P163"
+    material: "Al"
+    scale: "pilot"
+    regime: "H-Osc"
+    EA_N: 414000
+    v_ref_mps: 2.0
+    T_ref_N: 306.0
+    T_max_N: 1020.0
+    zeta_CL_min: 0.357
+    overshoot_percent: 31.8
+    R_m: [0.3, 0.1, 0.3]
+    J_kgm2: [5.73936, 0.221068, 5.73936]
+    f_Nms_per_rad: [1.052208, 0.125884, 1.052208]
+    L_m: [5.0, 8.0, 5.0]
+    noise_sigma_N_0p3pct_Tmax: 3.06
+  P08:
+    pool_id: "P177"
+    material: "Al"
+    scale: "prod"
+    regime: "O-UD"
+    EA_N: 1242000
+    v_ref_mps: 5.0
+    T_ref_N: 918.0
+    T_max_N: 3060.0
+    zeta_CL_min: 0.179
+    overshoot_percent: 55.3
+    R_m: [0.75, 0.2, 0.75]
+    J_kgm2: [937.741061, 12.177233, 937.741061]
+    f_Nms_per_rad: [1.303144, 0.225839, 1.303144]
+    L_m: [8.0, 30.0, 10.0]
+    noise_sigma_N_0p3pct_Tmax: 9.18
+  P09:
+    pool_id: "P186"
+    material: "Cu"
+    scale: "lab"
+    regime: "H-Damp"
+    EA_N: 351000
+    v_ref_mps: 0.1
+    T_ref_N: 360.0
+    T_max_N: 1200.0
+    zeta_CL_min: 0.53
+    overshoot_percent: 16.1
+    R_m: [0.15, 0.1, 0.15]
+    J_kgm2: [0.609345, 0.272279, 0.609345]
+    f_Nms_per_rad: [3.0, 0.387705, 3.0]
+    L_m: [2.0, 2.0, 2.0]
+    noise_sigma_N_0p3pct_Tmax: 3.6
+  P10:
+    pool_id: "P189"
+    material: "Cu"
+    scale: "pilot"
+    regime: "O-UD"
+    EA_N: 351000
+    v_ref_mps: 3.0
+    T_ref_N: 360.0
+    T_max_N: 1200.0
+    zeta_CL_min: 0.21
+    overshoot_percent: 51.9
+    R_m: [0.3, 0.1, 0.3]
+    J_kgm2: [44.902091, 0.472429, 44.902091]
+    f_Nms_per_rad: [10.0, 3.0, 10.0]
+    L_m: [5.0, 5.0, 5.0]
+    noise_sigma_N_0p3pct_Tmax: 3.6
