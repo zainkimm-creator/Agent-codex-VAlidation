@@ -1,0 +1,58 @@
+Read AGENTS.md, README.md, docs/PROFESSOR_DETAILS_RESOLVED.md, and the config files first.
+
+Task: Update the R2R paper-validator repo using the professor-provided missing implementation details.
+
+Goal:
+Make the project config-driven and ready for exact reproduction of the paper sections that are now resolved.
+
+Files to create or update:
+- README.md
+- docs/PROFESSOR_DETAILS_RESOLVED.md
+- docs/MISSING_DETAILS.md
+- configs/plants_p01_p10.yaml
+- configs/excitation_profiles.yaml
+- configs/noise_lpf.yaml
+- configs/paper_targets.yaml
+
+Use these professor corrections:
+1. There is no separate b parameter. The supplement's b_i is a typo for f_i. Use only viscous friction f_i.
+2. Plant scalars are EA, v_ref, T_ref, and T_max.
+3. Per-roller arrays are R, J, f; span lengths are L.
+4. Roller order is [UW, Nip, RW] = [0, 1, 2].
+5. Span length order is [span0, span1, span2].
+6. Feeder is speed-master boundary with v = v_ref and is not torque-controlled.
+7. P01-P10 are fixed plants, not randomly resampled.
+8. ET1, ET3, ET6 use +20% tension steps relative to each channel's T_ref.
+9. Common excitation timing: 2 s settle, 5 s per episode, Kp_star = 100.
+10. ET1: UW step at t=2 s, total 7 s.
+11. ET3: UW t=2 s, Nip t=7 s, RW t=12 s, cumulative, total 17 s.
+12. ET6: ET3 up-steps, then UW down t=17 s, Nip down t=22 s, RW down t=27 s, total 32 s.
+13. ET3M uses v0 multipliers [0.5, 1.0, 2.0], one ET3 run per operating point, identified jointly.
+14. Skip EVR and EV1 for reproduction for now.
+15. Final sensor-noise data uses seed 0 only, not 3 seeds.
+16. Use numpy.default_rng(0).
+17. Noise is additive i.i.d. Gaussian per tension channel with sigma = 0.003 * T_max, not T_ref.
+18. Add noise to measured tensions, then apply a first-order 100 Hz low-pass filter.
+19. SN figures use Tlog = 20 ms; NF figures use Tlog = 5 ms.
+
+Important rules:
+- Do not invent any values not present in the files.
+- Do not implement equations in this task unless they already exist and only need config wiring.
+- Do not build frontend in this task.
+- Add config validation tests if a test framework already exists.
+- If tests do not exist yet, create a simple config-loading smoke test.
+
+Expected output:
+1. Updated config files.
+2. Updated README and docs.
+3. A summary of values loaded from professor details.
+4. A list of remaining implementation-sensitive details: exact LPF discretization and optimizer settings.
+5. Test command and results.
+
+After finishing, report:
+Files changed:
+How to run:
+How to test:
+Assumptions:
+Remaining issues:
+Next recommended task:
