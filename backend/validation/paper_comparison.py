@@ -15,6 +15,14 @@ CONFIG_DIR = PROJECT_ROOT / "configs"
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 REPORT_SUMMARY_DIR = PROJECT_ROOT / "reports" / "validation_summary"
 
+PAPER_SOURCE_NOTES = {
+    "logging": "paper_targets.yaml logging_targets; extracted paper deployment rule U-10",
+    "excitation": "paper_targets.yaml excitation_targets; professor exact-mode skip list",
+    "noise_lpf": "noise_lpf.yaml and paper_targets.yaml noise_lpf_targets",
+    "drift": "paper_targets.yaml drift_targets; extracted paper Eq. (2) drift example",
+    "retuning": "paper_targets.yaml retuning_targets; extracted paper Eq. (9), Table 3/Figure 10",
+}
+
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
@@ -216,6 +224,9 @@ def _artifact_record(name: str, rows: list[dict[str, Any]], points: list[str], d
     base = OUTPUT_DIR / "validation_runs" / "latest"
     csv_path = OUTPUT_DIR / "csv" / f"{name}_paper_comparison.csv"
     summary_path = base / f"{name}_paper_comparison.json"
+    paper_source = PAPER_SOURCE_NOTES.get(name, "configs/paper_targets.yaml")
+    for row in rows:
+        row.setdefault("paper_source", paper_source)
     statuses = {str(row.get("status", "")).lower() for row in rows}
     if statuses == {"missing"}:
         overall_status = "missing"
@@ -230,7 +241,7 @@ def _artifact_record(name: str, rows: list[dict[str, Any]], points: list[str], d
         "validation": name,
         "pass_fail_status": overall_status,
         "trend_status": f"{name} paper comparison {overall_status}",
-        "result_points": points,
+        "result_points": [*points, f"Paper source: {paper_source}."],
         "rows": rows,
         "display_mode": display_mode,
         "csv_path": str(csv_path),

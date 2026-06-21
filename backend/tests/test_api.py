@@ -61,6 +61,8 @@ def test_dashboard_outputs_route_returns_required_pages():
     assert "dashboard_result" in logging_page
     assert logging_page["display_mode"] == "graph"
     assert logging_page["result_points"]
+    assert any("Paper source:" in point for point in logging_page["result_points"])
+    assert "paper_source" in logging_page["table_rows"][0]
     assert "csv" in logging_page["output_files"]
     assert logging_page["output_files"]["csv"]["url"].endswith("logging_paper_comparison.csv")
     assert logging_page["output_files"]["plot"]["url"].endswith("logging_paper_comparison.svg")
