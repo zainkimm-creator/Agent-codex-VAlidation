@@ -1,38 +1,62 @@
-"""One-step prediction-error system identification for the seven paper parameters."""
+"""Seven-parameter one-step prediction-error SysID estimator."""
 
 from __future__ import annotations
 
 import csv
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from backend.models.equations import (
-    INPUT_NAMES,
-    PARAMETER_NAMES,
-    R2RParameters,
-    STATE_NAMES,
-    roller_tension_differences,
+import numpy as np
+import yaml
+from scipy.optimize import least_squares
+
+from backend.models.equations import INPUT_NAMES, PARAMETER_NAMES, R2RParameters
+from backend.sysid.cost import (
+    one_step_prediction_cost,
+    one_step_prediction_residuals,
+    surface_velocity,
+    theta_array,
+    theta_dict,
+    theta_from_params,
+    time_steps,
+    validate_sysid_rows,
 )
+from backend.sysid.metrics import parameter_error_table, rmse_theta
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SUMMARY_DIR = PROJECT_ROOT / "reports" / "validation_summary"
+DEFAULT_PLANT_CONFIG = PROJECT_ROOT / "configs" / "plants_p01_p10.yaml"
 
 
 @dataclass
 class SysIDResult:
-    estimates: dict[str, float]
+    theta_est: dict[str, float]
     rmse_theta: float
     error_table: list[dict[str, float | str]]
+    convergence_status: str
+    success: bool
+    cost: float
+    nfev: int
     summary_path: str | None = None
+
+    @property
+    def estimates(self) -> dict[str, float]:
+        """Backward-compatible alias used by the API and older tests."""
+
+        return self.theta_est
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "theta_est": self.theta_est,
             "estimates": self.estimates,
             "RMSE_theta": self.rmse_theta,
             "error_table": self.error_table,
+            "convergence_status": self.convergence_status,
+            "success": self.success,
+            "cost": self.cost,
+            "nfev": self.nfev,
             "summary_path": self.summary_path,
         }
 
@@ -43,20 +67,97 @@ def load_rows_from_csv(path: str | Path) -> list[dict[str, float]]:
         return [{key: float(value) for key, value in row.items()} for row in reader]
 
 
-def _solve_2x2(a11: float, a12: float, a22: float, b1: float, b2: float) -> tuple[float, float]:
-    det = a11 * a22 - a12 * a12
-    if abs(det) < 1e-12:
-        raise ValueError("ill-conditioned 2x2 normal equation")
-    return ((b1 * a22 - b2 * a12) / det, (a11 * b2 - a12 * b1) / det)
+def load_parameters_from_config(
+    plant_id: str = "P01",
+    config_path: Path = DEFAULT_PLANT_CONFIG,
+) -> R2RParameters:
+    """Load plant parameters from `configs/plants_p01_p10.yaml`."""
+
+    target = Path(config_path)
+    if not target.exists():
+        raise FileNotFoundError(f"Plant config not found: {target}")
+    with target.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+    plants = payload.get("plants", {}) if isinstance(payload, Mapping) else {}
+    if plant_id not in plants:
+        valid = ", ".join(sorted(str(key) for key in plants))
+        raise ValueError(f"Unknown plant_id '{plant_id}'. Valid plants: {valid}.")
+    row = plants[plant_id]
+    return R2RParameters(
+        span_length_m=tuple(float(value) for value in row["L_m"]),
+        roller_radius_m=tuple(float(value) for value in row["R_m"]),
+        inertia_kg_m2=tuple(float(value) for value in row["J_kgm2"]),
+        tension_ref_N=(float(row["T_ref_N"]),) * 3,
+        kf_UW=float(row["f_Nms_per_rad"][0]),
+        kf_Nip=float(row["f_Nms_per_rad"][1]),
+        kf_RW=float(row["f_Nms_per_rad"][2]),
+        EA=float(row["EA_N"]),
+        feeder_velocity_m_s=float(row["v_ref_mps"]),
+    )
 
 
-def _safe_relative_error(estimate: float, truth: float) -> float:
-    denom = abs(truth) if abs(truth) > 1e-12 else 1.0
-    return (estimate - truth) / denom
+def _solve_linear_seed(rows: Sequence[Mapping[str, float]], params: R2RParameters) -> dict[str, float]:
+    """Compute a deterministic linear least-squares seed for TRF."""
 
+    validate_sysid_rows(rows, params)
+    dt_values = time_steps(rows)
+    kt_estimates: list[float] = []
+    kf_estimates: list[float] = []
 
-def _time_steps(rows: Sequence[Mapping[str, float]]) -> list[float]:
-    return [rows[i + 1]["time_s"] - rows[i]["time_s"] for i in range(len(rows) - 1)]
+    for roller in range(3):
+        design: list[list[float]] = []
+        target: list[float] = []
+        radius = params.roller_radius_m[roller]
+        for index, dt in enumerate(dt_values):
+            row = rows[index]
+            next_row = rows[index + 1]
+            velocity = surface_velocity(row, roller, params)
+            next_velocity = surface_velocity(next_row, roller, params)
+            if roller == 0:
+                tension_delta = float(row["T2"]) - float(row["T1"])
+            elif roller == 1:
+                tension_delta = float(row["T3"]) - float(row["T2"])
+            else:
+                tension_delta = -float(row["T3"])
+            design.append([tension_delta + float(row[INPUT_NAMES[roller]]) / radius, -velocity])
+            target.append((next_velocity - velocity) / dt)
+        solution, *_ = np.linalg.lstsq(np.asarray(design), np.asarray(target), rcond=None)
+        kt_estimates.append(max(1e-9, float(solution[0])))
+        kf_estimates.append(max(1e-9, float(solution[1])))
+
+    ea_design: list[float] = []
+    ea_target: list[float] = []
+    for index, dt in enumerate(dt_values):
+        row = rows[index]
+        next_row = rows[index + 1]
+        velocities = tuple(surface_velocity(row, roller, params) for roller in range(3))
+        velocity_prev = (params.feeder_velocity_m_s, velocities[0], velocities[1])
+        tensions = (float(row["T1"]), float(row["T2"]), float(row["T3"]))
+        tension_prev = (0.0, tensions[0], tensions[1])
+        next_tensions = (float(next_row["T1"]), float(next_row["T2"]), float(next_row["T3"]))
+        for span in range(3):
+            length = params.span_length_m[span]
+            observed_dT = (next_tensions[span] - tensions[span]) / dt
+            convective = (tension_prev[span] * velocity_prev[span] - tensions[span] * velocities[span]) / length
+            ea_design.append((velocities[span] - velocity_prev[span]) / length)
+            ea_target.append(observed_dT - convective)
+    design = np.asarray(ea_design).reshape(-1, 1)
+    target = np.asarray(ea_target)
+    if float(np.dot(design[:, 0], design[:, 0])) > 1e-18:
+        ea_solution, *_ = np.linalg.lstsq(design, target, rcond=None)
+        ea_estimate = max(1e-9, float(ea_solution[0]))
+    else:
+        ea_estimate = params.EA
+
+    return {
+        "kt_UW": kt_estimates[0],
+        "kt_Nip": kt_estimates[1],
+        "kt_RW": kt_estimates[2],
+        "kf_UW": kf_estimates[0],
+        "kf_Nip": kf_estimates[1],
+        "kf_RW": kf_estimates[2],
+        "EA": ea_estimate,
+    }
 
 
 def estimate_parameters(
@@ -65,107 +166,46 @@ def estimate_parameters(
     true_params: R2RParameters | None = None,
     summary_name: str | None = "sysid_result.json",
     summary_dir: Path | None = None,
+    *,
+    plant_id: str | None = None,
+    config_path: Path | None = None,
+    max_nfev: int = 40,
 ) -> SysIDResult:
-    """Estimate `kt_UW`, `kt_Nip`, `kt_RW`, `kf_UW`, `kf_Nip`, `kf_RW`, and `EA`.
+    """Estimate the seven paper SysID parameters with SciPy TRF least squares."""
 
-    The estimator uses one-step finite-difference prediction equations. For roller
-    dynamics, each roller solves a two-parameter least-squares problem in the
-    paper Eq. (6) ratio form:
+    if nominal_params is not None:
+        params = nominal_params
+    elif plant_id is not None or config_path is not None:
+        params = load_parameters_from_config(plant_id or "P01", config_path or DEFAULT_PLANT_CONFIG)
+    else:
+        params = R2RParameters()
 
-        dv_i = kt_i*(T_{i+1}-T_i + k_motor_i*u_i/R_i) - kf_i*v_i
+    validate_sysid_rows(rows, params)
+    truth = true_params or params
+    theta_true = theta_from_params(truth)
 
-    For tension dynamics, all three spans share one least-squares estimate of EA
-    derived from paper Eq. (1):
+    try:
+        initial = theta_array(_solve_linear_seed(rows, params))
+    except (ValueError, np.linalg.LinAlgError):
+        initial = theta_array(theta_from_params(params))
 
-        dT_i - (T_{i-1}v_{i-1} - T_i v_i)/L_i = EA*(v_i - v_{i-1})/L_i
-    """
-
-    if len(rows) < 3:
-        raise ValueError("at least 3 logged rows are required for SysID")
-    params = nominal_params or R2RParameters()
-    true = true_params or params
-    dt_values = _time_steps(rows)
-    if any(dt <= 0 for dt in dt_values):
-        raise ValueError("row time_s values must be strictly increasing")
-
-    kt_estimates: list[float] = []
-    kf_estimates: list[float] = []
-    for roller_idx in range(3):
-        a11 = a12 = a22 = b1 = b2 = 0.0
-        input_name = INPUT_NAMES[roller_idx]
-        radius = params.roller_radius_m[roller_idx]
-        velocity_name = ("v_UW_m_s", "v_Nip_m_s", "v_RW_m_s")[roller_idx]
-        for i in range(len(rows) - 1):
-            dt = dt_values[i]
-            row = rows[i]
-            next_row = rows[i + 1]
-            velocity = row[velocity_name]
-            dv = (next_row[velocity_name] - velocity) / dt
-            state = tuple(float(row[name]) for name in STATE_NAMES)
-            tension_delta = roller_tension_differences(state)[roller_idx]
-            y = dv
-            x1 = tension_delta + (row[input_name] / radius)
-            x2 = -velocity
-            a11 += x1 * x1
-            a12 += x1 * x2
-            a22 += x2 * x2
-            b1 += x1 * y
-            b2 += x2 * y
-        kt_i, kf_i = _solve_2x2(a11, a12, a22, b1, b2)
-        kt_estimates.append(max(1e-6, kt_i))
-        kf_estimates.append(max(1e-6, kf_i))
-
-    ea_num = 0.0
-    ea_den = 0.0
-    span_rows = (
-        ("T1", 0, lambda row: (0.0, row["T1"]), lambda row: (params.feeder_velocity_m_s, row["v_UW_m_s"])),
-        ("T2", 1, lambda row: (row["T1"], row["T2"]), lambda row: (row["v_UW_m_s"], row["v_Nip_m_s"])),
-        ("T3", 2, lambda row: (row["T2"], row["T3"]), lambda row: (row["v_Nip_m_s"], row["v_RW_m_s"])),
+    lower_bounds = np.full(7, 1e-9)
+    upper_bounds = np.full(7, np.inf)
+    result = least_squares(
+        one_step_prediction_residuals,
+        initial,
+        args=(rows, params),
+        bounds=(lower_bounds, upper_bounds),
+        method="trf",
+        x_scale=np.maximum(np.abs(initial), 1.0),
+        max_nfev=max_nfev,
     )
-    for i in range(len(rows) - 1):
-        dt = dt_values[i]
-        row = rows[i]
-        next_row = rows[i + 1]
-        for tension_name, span_idx, tension_pair_fn, speed_pair_fn in span_rows:
-            d_tension = (next_row[tension_name] - row[tension_name]) / dt
-            t_prev, t_i = tension_pair_fn(row)
-            v_prev, v_i = speed_pair_fn(row)
-            length = params.span_length_m[span_idx]
-            convective = (t_prev * v_prev - t_i * v_i) / length
-            y = d_tension - convective
-            x = (v_i - v_prev) / length
-            ea_num += x * y
-            ea_den += x * x
-    ea_estimate = ea_num / ea_den if ea_den > 1e-12 else params.EA
 
-    estimates = {
-        "kt_UW": kt_estimates[0],
-        "kt_Nip": kt_estimates[1],
-        "kt_RW": kt_estimates[2],
-        "kf_UW": kf_estimates[0],
-        "kf_Nip": kf_estimates[1],
-        "kf_RW": kf_estimates[2],
-        "EA": max(1e-6, ea_estimate),
-    }
-    error_table: list[dict[str, float | str]] = []
-    rel_errors = []
-    truth_values = true.sysid_values()
-    for name in PARAMETER_NAMES:
-        estimate = estimates[name]
-        truth = truth_values[name]
-        abs_error = estimate - truth
-        rel_error = _safe_relative_error(estimate, truth)
-        rel_errors.append(rel_error)
-        error_table.append(
-            {
-                "parameter": name,
-                "estimate": estimate,
-                "truth": truth,
-                "absolute_error": abs_error,
-                "relative_error": rel_error,
-            }
-        )
-    rmse_theta = math.sqrt(sum(value * value for value in rel_errors) / len(rel_errors))
+    theta_est = theta_dict(result.x)
+    errors = parameter_error_table(theta_est, theta_true)
+    rmse = rmse_theta(theta_est, theta_true)
+    convergence_status = f"{result.status}: {result.message}"
+    final_cost = one_step_prediction_cost(theta_est, rows, params)
 
     summary_path = None
     if summary_name:
@@ -175,13 +215,28 @@ def estimate_parameters(
         target_path.write_text(
             json.dumps(
                 {
-                    "estimates": estimates,
-                    "RMSE_theta": rmse_theta,
-                    "error_table": error_table,
+                    "theta_est": theta_est,
+                    "estimates": theta_est,
+                    "RMSE_theta": rmse,
+                    "error_table": errors,
+                    "convergence_status": convergence_status,
+                    "success": bool(result.success),
+                    "cost": final_cost,
+                    "nfev": int(result.nfev),
                 },
                 indent=2,
             ),
             encoding="utf-8",
         )
         summary_path = str(target_path)
-    return SysIDResult(estimates=estimates, rmse_theta=rmse_theta, error_table=error_table, summary_path=summary_path)
+
+    return SysIDResult(
+        theta_est=theta_est,
+        rmse_theta=rmse,
+        error_table=errors,
+        convergence_status=convergence_status,
+        success=bool(result.success),
+        cost=final_cost,
+        nfev=int(result.nfev),
+        summary_path=summary_path,
+    )
