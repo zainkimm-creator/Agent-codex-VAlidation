@@ -459,6 +459,16 @@ def dashboard_outputs_route() -> dict[str, object]:
             **_file_descriptor(OUTPUT_DIR / "csv" / "noise_lpf_paper_comparison.csv"),
         },
         {
+            "label": "drift validation summary",
+            "type": "json",
+            **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "drift_validation.json"),
+        },
+        {
+            "label": "drift results",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "drift_results.csv"),
+        },
+        {
             "label": "drift paper comparison",
             "type": "svg",
             **_file_descriptor(OUTPUT_DIR / "figures" / "drift_paper_comparison.svg"),

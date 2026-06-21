@@ -387,8 +387,13 @@ def _noise_lpf_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _drift_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
-    summary = _read_json(REPORT_SUMMARY_DIR / "drift_summary.json") or {}
-    metrics = {row.get("scenario"): row for row in summary.get("metrics", []) if isinstance(row, dict)}
+    summary = (
+        _read_json(OUTPUT_DIR / "validation_runs" / "latest" / "drift_validation.json")
+        or _read_json(REPORT_SUMMARY_DIR / "drift_summary.json")
+        or {}
+    )
+    raw_metrics = summary.get("rows") or summary.get("metrics", [])
+    metrics = {row.get("scenario"): row for row in raw_metrics if isinstance(row, dict)}
     paper = targets.get("drift_targets", {})
     paper_values = {
         "EA": sum(paper.get("EA_saturation_RMSE_range_percent", [15, 18])) / 2.0,

@@ -931,6 +931,15 @@ EV1  skipped by exact reproduction rule
 EVR  skipped by exact reproduction rule
 ```
 
+Latest drift validation:
+
+```text
+EA drift dashboard RMSE_theta_percent = 4.5335, paper target midpoint = 16.5, status = pass
+f drift dashboard RMSE_theta_percent = 5.6117, paper target midpoint = 20.5, status = review
+J drift dashboard RMSE_theta_percent = 182.3123, paper target = 39.3, status = review
+Dominant dashboard degradation source = J
+```
+
 Important sign-convention resolution:
 
 ```text
@@ -1019,7 +1028,8 @@ npm run build     -> passed
 ## 10. Remaining Issues
 
 - SN excitation rows are now generated, but their RMSE_theta values are lower than the paper SN targets, so they are marked review rather than pass.
-- Noise/LPF, Drift, and Retuning dashboard pages have comparison tables/placeholders, but full dedicated output-generation scripts still need to be completed for those pages.
+- Noise/LPF and Retuning dashboard pages have comparison tables/placeholders, but full dedicated output-generation scripts still need to be completed for those pages.
+- Drift now has `outputs/csv/drift_results.csv` and `outputs/validation_runs/latest/drift_validation.json`, but the f/J numeric comparison remains review.
 - Some feature PRs are stacked on earlier branches and may show as draft or not mergeable until the previous branches are merged or rebased.
 - The dashboard comparison graphs are available for Logging, Excitation, and Drift; table-first comparison is used where graphing is not yet useful.
 
