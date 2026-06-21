@@ -7,7 +7,7 @@ from backend.validation.validate_excitation import run_excitation_validation
 
 def test_excitation_validation_writes_outputs_and_skips_exact_profiles(tmp_path: Path):
     result = run_excitation_validation(
-        duration_override_s=0.03,
+        duration_override_s=0.05,
         output_root=tmp_path,
     )
 
@@ -24,7 +24,9 @@ def test_excitation_validation_writes_outputs_and_skips_exact_profiles(tmp_path:
     with csv_path.open("r", newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     by_name = {row["excitation_type"]: row for row in rows}
+    cases = {row["dashboard_case"] for row in rows}
     assert {"ET1", "ET3", "ET6", "ET3M", "EV1", "EVR"}.issubset(by_name)
+    assert cases == {"NF", "SN"}
     assert by_name["ET1"]["skipped"] == "False"
     assert by_name["ET3"]["skipped"] == "False"
     assert by_name["ET6"]["skipped"] == "False"

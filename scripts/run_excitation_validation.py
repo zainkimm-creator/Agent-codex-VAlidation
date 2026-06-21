@@ -15,11 +15,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run excitation-profile validation.")
     parser.add_argument("--plant-id", default="P01")
     parser.add_argument("--duration-s", type=float, default=None)
+    parser.add_argument("--case", action="append", choices=["NF", "SN"], dest="cases")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     args = parser.parse_args()
 
     result = run_excitation_validation(
         plant_id=args.plant_id,
+        validation_cases=args.cases or ("NF", "SN"),
         duration_override_s=args.duration_s,
         output_root=args.output_root,
     )

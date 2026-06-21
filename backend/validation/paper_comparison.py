@@ -297,45 +297,34 @@ def _logging_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
 def _excitation_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
     rows = _read_csv(OUTPUT_DIR / "csv" / "excitation_results.csv")
     dashboard_rows = {
-        row.get("excitation_type"): row
+        (str(row.get("excitation_type")), str(row.get("dashboard_case") or "NF")): row
         for row in rows
         if row.get("skipped") == "False"
     }
     excitation_targets = targets.get("excitation_targets", {})
     paper_nf = excitation_targets.get("NF_RMSE_theta_percent", {})
     paper_sn = excitation_targets.get("SN_RMSE_theta_percent", {})
-    paper_names = set()
-    if isinstance(paper_nf, Mapping):
-        paper_names.update(str(name) for name in paper_nf)
-    if isinstance(paper_sn, Mapping):
-        paper_names.update(str(name) for name in paper_sn)
-    paper_names.discard("E_Toggle")
-    paper_names.update(str(name) for name in dashboard_rows)
     comparison_rows: list[dict[str, Any]] = []
-    for name in sorted(paper_names):
-        dashboard_row = dashboard_rows.get(name, {})
-        dashboard_case = str(dashboard_row.get("dashboard_case") or "NF")
+    target_specs = []
+    if isinstance(paper_nf, Mapping):
+        target_specs.extend(("NF", str(name), value) for name, value in paper_nf.items() if str(name) != "E_Toggle")
+    if isinstance(paper_sn, Mapping):
+        target_specs.extend(("SN", str(name), value) for name, value in paper_sn.items() if str(name) != "E_Toggle")
+    for dashboard_case, name, paper_value_raw in sorted(target_specs, key=lambda item: (item[1], item[0])):
+        dashboard_row = dashboard_rows.get((name, dashboard_case), {})
         dashboard_value = _float(dashboard_row.get("RMSE_theta_percent"))
-        nf_value = _float(paper_nf.get(name) if isinstance(paper_nf, Mapping) else None)
-        sn_value = _float(paper_sn.get(name) if isinstance(paper_sn, Mapping) else None)
-        matched_value = nf_value if dashboard_case == "NF" else sn_value
-        matched_case = dashboard_case if matched_value is not None else None
-        delta = dashboard_value - matched_value if dashboard_value is not None and matched_value is not None else None
-        status = _status(delta) if delta is not None else "review"
-        note = (
-            f"matched {matched_case} paper target"
-            if matched_case
-            else f"no {dashboard_case} paper target for this dashboard run"
-        )
+        paper_value = _float(paper_value_raw)
+        delta = dashboard_value - paper_value if dashboard_value is not None and paper_value is not None else None
+        status = _status(delta) if delta is not None else "missing"
+        note = "matched paper target" if delta is not None else "dashboard result missing"
         comparison_rows.append(
             {
                 "excitation": name,
                 "dashboard_case": dashboard_case,
-                "paper_NF_RMSE_theta_percent": nf_value,
-                "paper_SN_RMSE_theta_percent": sn_value,
+                "comparison": f"{name} {dashboard_case}",
+                "paper_RMSE_theta_percent": paper_value,
                 "dashboard_RMSE_theta_percent": dashboard_value,
-                "matched_paper_target_percent": matched_value,
-                "delta_to_matched_target_percent": delta,
+                "delta_percent": delta,
                 "status": status,
                 "note": note,
             }
@@ -346,16 +335,15 @@ def _excitation_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
         OUTPUT_DIR / "figures" / "excitation_paper_comparison.svg",
         comparison_rows,
         title="Excitation comparison",
-        category_key="excitation",
-        paper_key="matched_paper_target_percent",
+        category_key="comparison",
+        paper_key="paper_RMSE_theta_percent",
         dashboard_key="dashboard_RMSE_theta_percent",
         y_label="RMSE_theta (%)",
     )
     skipped = excitation_targets.get("skipped_for_reproduction", [])
     points = [
         f"Exact mode skips: {', '.join(str(item) for item in skipped)}.",
-        "Dashboard exact run is NF; NF targets are used where available.",
-        "ET3M has only an SN paper target in the current config.",
+        "NF rows compare to paper NF targets; SN rows compare to paper SN targets.",
     ]
     return _artifact_record("excitation", comparison_rows, points, "graph", plot_path)
 

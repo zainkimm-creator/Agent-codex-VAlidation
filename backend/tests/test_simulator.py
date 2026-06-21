@@ -2,6 +2,8 @@ import csv
 from math import isfinite
 from pathlib import Path
 
+from pytest import approx
+
 from backend.simulation.simulator import (
     REQUIRED_COLUMNS,
     MultirateSimulationConfig,
@@ -91,3 +93,20 @@ def test_et1_excitation_changes_logged_reference_after_2s(tmp_path: Path):
     assert float(by_time[2.0]["Tref1"]) == 14.4
     assert float(by_time[2.0]["Tref2"]) == 12.0
     assert float(by_time[2.0]["Tref3"]) == 12.0
+
+
+def test_line_speed_multiplier_scales_initial_logged_velocity(tmp_path: Path):
+    baseline = run_multirate_simulation(
+        MultirateSimulationConfig(duration_s=0.001, output_name="base_speed.csv"),
+        output_dir=tmp_path,
+    )
+    faster = run_multirate_simulation(
+        MultirateSimulationConfig(
+            duration_s=0.001,
+            line_speed_multiplier=2.0,
+            output_name="fast_speed.csv",
+        ),
+        output_dir=tmp_path,
+    )
+
+    assert float(faster.rows[0]["v_UW"]) == approx(2.0 * float(baseline.rows[0]["v_UW"]))

@@ -917,13 +917,16 @@ http://127.0.0.1:5173/
 
 ## 6. Current Validation Status
 
-Latest full excitation validation after the tension-consistent initial-state and controller sign-map update:
+Latest full excitation validation after the tension-consistent initial-state, controller sign-map, and SN noise/LPF update:
 
 ```text
 ET1  dashboard NF RMSE_theta_percent = 1.3146, paper NF target = 2.5, status = pass
+ET1  dashboard SN RMSE_theta_percent = 9.0127, paper SN target = 31.4, status = review
 ET3  dashboard NF RMSE_theta_percent = 1.3587, paper NF target = 3.5, status = pass
+ET3  dashboard SN RMSE_theta_percent = 10.4379, paper SN target = 22.2, status = review
 ET6  dashboard NF RMSE_theta_percent = 1.3596, paper NF target = 3.4, status = pass
-ET3M dashboard NF RMSE_theta_percent = 1.3513, no NF paper target in config, status = review
+ET6  dashboard SN RMSE_theta_percent = 10.4309, paper SN target = 21.0, status = review
+ET3M dashboard SN RMSE_theta_percent = 10.4088, paper SN target = 22.8, status = review
 EV1  skipped by exact reproduction rule
 EVR  skipped by exact reproduction rule
 ```
@@ -939,9 +942,10 @@ With that isolated sign map, ET1, ET3, ET6, and ET3M complete without numerical 
 Current comparison rule:
 
 ```text
-The dashboard exact run is currently NF.
-The comparison CSV uses NF paper targets where available.
-ET3M has only an SN paper target in configs/paper_targets.yaml, so it remains review until an SN ET3M run is generated.
+The dashboard excitation comparison now includes NF and SN rows.
+NF dashboard rows compare only to paper NF targets.
+SN dashboard rows compare only to paper SN targets.
+ET3M is now generated as three ET3 operating points with line-speed multipliers [0.5, 1.0, 2.0].
 ```
 
 ## 7. Dashboard Data Flow
@@ -1014,19 +1018,19 @@ npm run build     -> passed
 
 ## 10. Remaining Issues
 
-- ET3M still needs a matching SN validation run or an NF paper target before it can be marked like-for-like comparable.
+- SN excitation rows are now generated, but their RMSE_theta values are lower than the paper SN targets, so they are marked review rather than pass.
 - Noise/LPF, Drift, and Retuning dashboard pages have comparison tables/placeholders, but full dedicated output-generation scripts still need to be completed for those pages.
 - Some feature PRs are stacked on earlier branches and may show as draft or not mergeable until the previous branches are merged or rebased.
 - The dashboard comparison graphs are available for Logging, Excitation, and Drift; table-first comparison is used where graphing is not yet useful.
 
 ## 11. Next Recommended Task
 
-Generate the matching sensor-noise validation layer before treating the excitation comparison as final:
+Calibrate the sensor-noise excitation layer before treating the excitation comparison as final:
 
 ```text
-1. Add SN excitation generation using sigma = 0.003*T_max and the 100 Hz LPF.
-2. Generate an SN ET3M result so it can be compared to the paper SN target.
-3. Regenerate paper-comparison CSV/SVG artifacts.
+1. Confirm whether the paper SN targets include additional unmodeled noise, repeated seeds, or physical-log variance.
+2. Recheck the SysID aggregation for ET3M against the paper multi-condition cost.
+3. Regenerate paper-comparison CSV/SVG artifacts after calibration.
 4. Verify the dashboard graph/table pages against the refreshed outputs.
 5. Rerun python -m pytest and npm run build.
 ```

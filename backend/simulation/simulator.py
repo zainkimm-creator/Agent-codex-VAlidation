@@ -104,6 +104,7 @@ class MultirateSimulationConfig:
     Kp_star: float = 0.0525
     excitation_type: str = "none"
     noise_enabled: bool = False
+    line_speed_multiplier: float = 1.0
     output_name: str = "multirate_simulation.csv"
     plant_config_path: Path = DEFAULT_PLANT_CONFIG
 
@@ -116,6 +117,8 @@ class MultirateSimulationConfig:
             raise ValueError("Ts_s must be an integer multiple of dt_s")
         if abs(round(self.Tlog_s / self.dt_s) - (self.Tlog_s / self.dt_s)) > 1e-9:
             raise ValueError("Tlog_s must be an integer multiple of dt_s")
+        if self.line_speed_multiplier <= 0 or not math.isfinite(self.line_speed_multiplier):
+            raise ValueError("line_speed_multiplier must be finite and positive")
 
 
 @dataclass
@@ -209,6 +212,8 @@ def run_multirate_simulation(
 
     active_config = config or MultirateSimulationConfig()
     plant = load_plant_config(active_config.plant_id, active_config.plant_config_path)
+    if active_config.line_speed_multiplier != 1.0:
+        plant = replace(plant, v_ref_mps=plant.v_ref_mps * active_config.line_speed_multiplier)
     dynamics_params = plant.dynamics_params()
     controller_params = plant.controller_params()
     controller = CascadePIController(
