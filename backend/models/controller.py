@@ -94,10 +94,44 @@ class ControlAction:
         }
 
 
-def steady_state_omega(params: R2RParameters, line_speed_m_s: float) -> tuple[float, float, float]:
-    """Return `omega_ss_i = v_ref/R_i` for each roller."""
+def steady_state_surface_velocities(
+    params: R2RParameters,
+    line_speed_m_s: float,
+    target_tension_N: Sequence[float] | None = None,
+) -> tuple[float, float, float]:
+    """Return steady surface speeds from Eq. (1) for target tensions.
 
-    return tuple(line_speed_m_s / radius for radius in params.roller_radius_m)
+    At steady state, Eq. (1) gives
+    `v_i(EA - T_i) = v_{i-1}(EA - T_{i-1})`, with `T0 = 0`.
+    """
+
+    refs = validate_vector(target_tension_N or params.tension_ref_N, 3, "target_tension_N")
+    velocities: list[float] = []
+    previous_tension = 0.0
+    previous_velocity = float(line_speed_m_s)
+    for tension in refs:
+        denominator = params.EA - tension
+        if denominator <= 0:
+            raise ValueError("target tension must be less than EA for steady-state speed calculation")
+        velocity = previous_velocity * (params.EA - previous_tension) / denominator
+        velocities.append(velocity)
+        previous_tension = tension
+        previous_velocity = velocity
+    return tuple(velocities)  # type: ignore[return-value]
+
+
+def steady_state_omega(
+    params: R2RParameters,
+    line_speed_m_s: float,
+    target_tension_N: Sequence[float] | None = None,
+) -> tuple[float, float, float]:
+    """Return steady `omega_ss_i` for the target tensions."""
+
+    surface_speeds = steady_state_surface_velocities(params, line_speed_m_s, target_tension_N)
+    return tuple(
+        surface_speeds[i] / params.roller_radius_m[i]
+        for i in range(3)
+    )  # type: ignore[return-value]
 
 
 def velocity_gains(
@@ -186,7 +220,7 @@ class CascadePIController:
             * (signed_error[i] + self.tension_integral_N_s[i] / self.config.TI_s)
             for i in range(3)
         )
-        omega_ss = steady_state_omega(active_params, self.config.line_speed_m_s)
+        omega_ss = steady_state_omega(active_params, self.config.line_speed_m_s, self.config.target_tension_N)
         velocity_ref = tuple(
             omega_ss[i] + v_corr_m_s[i] / active_params.roller_radius_m[i]
             for i in range(3)

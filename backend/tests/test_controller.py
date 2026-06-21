@@ -4,12 +4,13 @@ from backend.models.controller import (
     CascadePIController,
     ControllerConfig,
     feedforward_torques,
+    steady_state_omega,
 )
 from backend.models.equations import R2RParameters
 
 
 def _nominal_state(params: R2RParameters) -> tuple[float, ...]:
-    omega = tuple(1.0 / radius for radius in params.roller_radius_m)
+    omega = steady_state_omega(params, 1.0, params.tension_ref_N)
     return params.tension_ref_N + omega
 
 
@@ -36,7 +37,7 @@ def test_larger_kp_star_creates_larger_corrective_torque():
         params.tension_ref_N[0] - 1.0,
         params.tension_ref_N[1],
         params.tension_ref_N[2],
-        *(1.0 / radius for radius in params.roller_radius_m),
+        *steady_state_omega(params, 1.0, params.tension_ref_N),
     )
     low_gain = CascadePIController(
         ControllerConfig(target_tension_N=params.tension_ref_N, Kp_star=25.0)
@@ -69,7 +70,7 @@ def test_integral_state_updates_with_signed_tension_error():
         params.tension_ref_N[0] - 2.0,
         params.tension_ref_N[1] - 3.0,
         params.tension_ref_N[2] + 4.0,
-        *(1.0 / radius for radius in params.roller_radius_m),
+        *steady_state_omega(params, 1.0, params.tension_ref_N),
     )
     controller = CascadePIController(ControllerConfig(target_tension_N=params.tension_ref_N))
 

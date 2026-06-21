@@ -17,7 +17,7 @@ import yaml
 
 from backend.excitation.generators import tension_reference_delta
 from backend.excitation.profiles import SkippedExcitationError
-from backend.models.controller import CascadePIController, ControllerConfig
+from backend.models.controller import CascadePIController, ControllerConfig, steady_state_omega
 from backend.models.equations import R2RParameters
 from backend.models.r2r_dynamics import R2RDynamicsParams, r2r_derivatives, surface_velocities
 from backend.models.rk4 import rk4_step
@@ -160,7 +160,11 @@ def load_plant_config(
 
 
 def _initial_state(plant: PlantConfig) -> tuple[float, ...]:
-    omega = tuple(plant.v_ref_mps / radius for radius in plant.R_m)
+    omega = steady_state_omega(
+        plant.controller_params(),
+        plant.v_ref_mps,
+        plant.target_tensions_N,
+    )
     return plant.target_tensions_N + omega
 
 
