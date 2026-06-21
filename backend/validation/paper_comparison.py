@@ -349,6 +349,50 @@ def _excitation_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _noise_lpf_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
+    validation = _read_json(OUTPUT_DIR / "validation_runs" / "latest" / "noise_lpf_validation.json")
+    if validation:
+        validation_rows = [row for row in validation.get("rows", []) if isinstance(row, dict)]
+        sigma_rows = [row for row in validation_rows if row.get("section") == "sigma"]
+        sigma_passed = sum(1 for row in sigma_rows if row.get("status") == "pass")
+
+        def find_row(check: str) -> dict[str, Any]:
+            for row in validation_rows:
+                if row.get("check") == check:
+                    return row
+            return {"check": check, "status": "missing"}
+
+        def comparison_row(metric: str, check: str) -> dict[str, Any]:
+            source = find_row(check)
+            return {
+                "metric": metric,
+                "paper_value": source.get("paper_value"),
+                "dashboard_config": source.get("dashboard_value"),
+                "status": source.get("status", "missing"),
+                "note": source.get("note", ""),
+            }
+
+        rows = [
+            {
+                "metric": "P01-P10 sigma",
+                "paper_value": "0.003*T_max",
+                "dashboard_config": f"{sigma_passed}/{len(sigma_rows)} pass",
+                "status": "pass" if sigma_rows and sigma_passed == len(sigma_rows) else "review",
+                "note": "full per-plant values are in noise_lpf_results.csv",
+            },
+            comparison_row("seed reproducibility", "seed reproducibility"),
+            comparison_row("tension-only noise", "torque unchanged"),
+            comparison_row("LPF cutoff", "LPF cutoff"),
+            comparison_row("LPF minimum", "LPF minimum"),
+            comparison_row("NF Tlog", "NF Tlog"),
+            comparison_row("SN Tlog", "SN Tlog"),
+        ]
+        points = list(validation.get("result_points", [])) or [
+            f"P01-P10 sigma checks: {sigma_passed}/{len(sigma_rows)} pass.",
+            "Noise is tension-only.",
+            "LPF is first-order and applied after noise.",
+        ]
+        return _artifact_record("noise_lpf", rows, points, "table", None)
+
     noise_config = _read_yaml(CONFIG_DIR / "noise_lpf.yaml")
     lpf = noise_config.get("low_pass_filter", {})
     logging = noise_config.get("logging", {})

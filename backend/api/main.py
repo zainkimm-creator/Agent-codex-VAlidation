@@ -454,6 +454,16 @@ def dashboard_outputs_route() -> dict[str, object]:
             **_file_descriptor(OUTPUT_DIR / "csv" / "excitation_paper_comparison.csv"),
         },
         {
+            "label": "noise/lpf validation summary",
+            "type": "json",
+            **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "noise_lpf_validation.json"),
+        },
+        {
+            "label": "noise/lpf results",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "noise_lpf_results.csv"),
+        },
+        {
             "label": "noise/lpf comparison CSV",
             "type": "csv",
             **_file_descriptor(OUTPUT_DIR / "csv" / "noise_lpf_paper_comparison.csv"),
