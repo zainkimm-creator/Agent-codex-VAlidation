@@ -430,8 +430,13 @@ def _drift_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _retuning_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
-    summary = _read_json(REPORT_SUMMARY_DIR / "retuning_summary.json") or {}
-    metrics = {row.get("method"): row for row in summary.get("metrics", []) if isinstance(row, dict)}
+    summary = (
+        _read_json(OUTPUT_DIR / "validation_runs" / "latest" / "retuning_validation.json")
+        or _read_json(REPORT_SUMMARY_DIR / "retuning_summary.json")
+        or {}
+    )
+    raw_metrics = summary.get("rows") or summary.get("metrics", [])
+    metrics = {row.get("method"): row for row in raw_metrics if isinstance(row, dict)}
     paper = targets.get("retuning_targets", {})
     mapping = {
         "CS-BO(30)": "CS_BO_30",

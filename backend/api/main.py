@@ -483,6 +483,16 @@ def dashboard_outputs_route() -> dict[str, object]:
             "type": "csv",
             **_file_descriptor(OUTPUT_DIR / "csv" / "retuning_paper_comparison.csv"),
         },
+        {
+            "label": "retuning validation summary",
+            "type": "json",
+            **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "retuning_validation.json"),
+        },
+        {
+            "label": "retuning results",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "retuning_results.csv"),
+        },
     ]
 
     validation_config = default_config.get("validation", {}) if isinstance(default_config, dict) else {}

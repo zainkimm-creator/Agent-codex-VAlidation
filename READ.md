@@ -940,6 +940,16 @@ J drift dashboard RMSE_theta_percent = 182.3123, paper target = 39.3, status = r
 Dominant dashboard degradation source = J
 ```
 
+Latest retuning validation:
+
+```text
+CS-BO(30) dashboard cost = 37.8384, paper median cost = 0.407, status = review
+HGS-only dashboard cost = 37.8384, paper median cost = 0.403, status = review
+HGS+BO(5) dashboard cost = 37.8384, paper median cost = 0.342, status = review
+HGS+BO(10) dashboard cost = 37.8384, paper median cost = 0.337, status = review
+Evaluation-budget trend = HGS+BO(5) uses fewer real evaluations than CS-BO(30)
+```
+
 Important sign-convention resolution:
 
 ```text
@@ -1028,8 +1038,9 @@ npm run build     -> passed
 ## 10. Remaining Issues
 
 - SN excitation rows are now generated, but their RMSE_theta values are lower than the paper SN targets, so they are marked review rather than pass.
-- Noise/LPF and Retuning dashboard pages have comparison tables/placeholders, but full dedicated output-generation scripts still need to be completed for those pages.
+- Noise/LPF dashboard page has a config comparison table, but a full generated output script still needs to be completed.
 - Drift now has `outputs/csv/drift_results.csv` and `outputs/validation_runs/latest/drift_validation.json`, but the f/J numeric comparison remains review.
+- Retuning now has `outputs/csv/retuning_results.csv` and `outputs/validation_runs/latest/retuning_validation.json`, but the cost-scale numeric comparison remains review.
 - Some feature PRs are stacked on earlier branches and may show as draft or not mergeable until the previous branches are merged or rebased.
 - The dashboard comparison graphs are available for Logging, Excitation, and Drift; table-first comparison is used where graphing is not yet useful.
 
