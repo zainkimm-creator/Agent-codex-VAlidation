@@ -24,10 +24,16 @@ def test_logging_validation_writes_required_outputs(tmp_path: Path):
 
     with csv_path.open("r", newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    assert [int(row["Tlog_ms"]) for row in rows] == [1, 2, 5]
+    assert len(rows) == 6
+    assert {row["dashboard_case"] for row in rows} == {"NF", "SN"}
+    for case_name in ("NF", "SN"):
+        case_rows = [row for row in rows if row["dashboard_case"] == case_name]
+        assert [int(row["Tlog_ms"]) for row in case_rows] == [1, 2, 5]
+        assert {row["noise_enabled"] for row in case_rows} == {"True" if case_name == "SN" else "False"}
     assert "pass_fail_status" in rows[0]
     assert "trend_status" in rows[0]
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["paper_targets"]["sweep_ms"]
+    assert "best_SN_Tlog_ms" in summary
     assert summary["pass_fail_status"] in {"pass", "fail"}

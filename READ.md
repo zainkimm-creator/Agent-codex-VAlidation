@@ -128,7 +128,7 @@ ZOH  = held torque between controller updates
 
 It loads plant values from `configs/plants_p01_p10.yaml`, uses `r2r_dynamics.r2r_derivatives`, advances with `rk4.rk4_step`, and saves CSV output.
 
-`backend/models/simulation.py` is the older API simulation path. It has also been wired to the same focused dynamics and RK4 step, but some older API field names remain for compatibility in request payloads.
+`backend/models/simulation.py` is the older API simulation path. It has also been wired to the same focused dynamics and RK4 step, and it consumes held motor torques through `motor_torque_Nm` rather than the removed `inputs_V` compatibility path.
 
 ### 1.6 Excitation Profiles
 
@@ -1170,13 +1170,23 @@ These values are from the current generated comparison CSVs in `outputs/csv/`.
 ### 8.1 Logging
 
 ```text
-Tlog 1 ms   dashboard RMSE_theta = 1.3347 percent, status = trend
-Tlog 2 ms   dashboard RMSE_theta = 1.6651 percent, status = trend
-Tlog 5 ms   dashboard RMSE_theta = 6.1422 percent, status = trend
-Tlog 10 ms  dashboard RMSE_theta = 75.8537 percent, status = trend
-Tlog 20 ms  dashboard RMSE_theta = 75.6224 percent, paper = 23.2 percent, status = review
-Tlog 50 ms  dashboard RMSE_theta = 77.9521 percent, status = trend
-Tlog 100 ms dashboard RMSE_theta = 82.4825 percent, status = trend
+NF Tlog 1 ms    dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 2 ms    dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 5 ms    dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 10 ms   dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 20 ms   dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 50 ms   dashboard RMSE_theta = 85.7143 percent, status = trend
+NF Tlog 100 ms  dashboard RMSE_theta = 85.7143 percent, status = trend
+
+SN Tlog 1 ms    dashboard RMSE_theta = 88.7347 percent, status = trend
+SN Tlog 2 ms    dashboard RMSE_theta = 87.7333 percent, status = trend
+SN Tlog 5 ms    dashboard RMSE_theta = 87.5671 percent, status = trend
+SN Tlog 10 ms   dashboard RMSE_theta = 87.3058 percent, status = trend
+SN Tlog 20 ms   dashboard RMSE_theta = 88.9607 percent, paper = 23.2 percent, status = review
+SN Tlog 50 ms   dashboard RMSE_theta = 92.6806 percent, status = trend
+SN Tlog 100 ms  dashboard RMSE_theta = 89.0846 percent, status = trend
+
+Best SN Tlog = 10 ms, which is inside the paper's 10-20 ms noisy logging window.
 ```
 
 ### 8.2 Excitation
@@ -1281,7 +1291,7 @@ SN excitation errors are much lower than paper SN targets, so SN rows are marked
 Logging 20 ms currently differs from the paper 23.2 percent target and is marked review.
 Drift f and J numeric comparisons remain review.
 Retuning uses the paper-style score, but numeric costs remain review against paper median costs.
-Some older API comments and request fields still carry voltage-style naming, while the focused paper-validation simulator uses motor_torque_Nm.
+Some older config field names still mention voltage limits, but the simulator/control interface no longer uses `inputs_V`; controller output and simulation input use `motor_torque_Nm`.
 Stacked feature PRs may need rebase or previous branch merges before final merge.
 ```
 

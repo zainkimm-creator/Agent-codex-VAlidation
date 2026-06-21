@@ -258,14 +258,17 @@ def _logging_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
         rmse = _float(row.get("RMSE_theta_percent"))
         if tlog is None or rmse is None:
             continue
-        plotted.append({"Tlog_ms": tlog, "dashboard_RMSE_theta_percent": rmse})
-        if best_row is None or rmse < best_row["dashboard_value"]:
+        dashboard_case = str(row.get("dashboard_case") or ("SN" if str(row.get("noise_enabled")) == "True" else "NF"))
+        if dashboard_case == "SN":
+            plotted.append({"Tlog_ms": tlog, "dashboard_RMSE_theta_percent": rmse})
+        if dashboard_case == "SN" and (best_row is None or rmse < best_row["dashboard_value"]):
             best_row = {"Tlog_ms": tlog, "dashboard_value": rmse}
-        paper_value = reference if int(tlog) == 20 else None
+        paper_value = reference if dashboard_case == "SN" and int(tlog) == 20 else None
         delta = rmse - paper_value if paper_value is not None else None
         comparison_rows.append(
             {
-                "metric": f"Tlog {int(tlog)} ms RMSE_theta",
+                "metric": f"{dashboard_case} Tlog {int(tlog)} ms RMSE_theta",
+                "dashboard_case": dashboard_case,
                 "paper_value_percent": paper_value,
                 "dashboard_value_percent": rmse,
                 "delta_percent": delta,
@@ -287,10 +290,11 @@ def _logging_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
     )
     points = [
         f"Paper best noisy window: {best_window} ms.",
-        f"Dashboard best Tlog: {int(best_row['Tlog_ms'])} ms." if best_row else "Dashboard logging result missing.",
+        f"Dashboard best SN Tlog: {int(best_row['Tlog_ms'])} ms." if best_row else "Dashboard SN logging result missing.",
     ]
     if reference is not None:
-        points.append(f"Paper 20 ms target: {reference:.1f}% RMSE_theta.")
+        points.append(f"Paper SN 20 ms target: {reference:.1f}% RMSE_theta.")
+    points.append("Graph plots SN rows; comparison CSV keeps both NF and SN rows.")
     return _artifact_record("logging", comparison_rows, points, "graph", plot_path)
 
 
