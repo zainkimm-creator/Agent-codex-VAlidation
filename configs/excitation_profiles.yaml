@@ -1,0 +1,60 @@
+# configs/excitation_profiles.yaml
+# Source: professor reply email.
+# Tension-step amplitude is +20% of each channel's T_ref for ET1/ET3/ET6/ET3M.
+# Kp_star = 100 during excitation. Each episode uses 2 s settle and 5 s per step segment.
+# Roller/channel convention: 0 = UW, 1 = Nip, 2 = RW.
+
+common:
+  Kp_star: 100
+  settle_time_s: 2.0
+  episode_duration_s: 5.0
+  tension_step_fraction_of_Tref: 0.20
+
+ET1:
+  enabled: true
+  type: tension_step_single_channel
+  channel: UW
+  step_times_s:
+    UW: 2.0
+  hold_to_end: true
+  total_duration_s: 7.0
+
+ET3:
+  enabled: true
+  type: cumulative_round_robin_tension_steps
+  step_times_s:
+    UW: 2.0
+    Nip: 7.0
+    RW: 12.0
+  hold_to_end: true
+  total_duration_s: 17.0
+
+ET6:
+  enabled: true
+  type: up_then_down_tension_steps
+  step_up_times_s:
+    UW: 2.0
+    Nip: 7.0
+    RW: 12.0
+  step_down_times_s:
+    UW: 17.0
+    Nip: 22.0
+    RW: 27.0
+  total_duration_s: 32.0
+  notes: "UW high during 2-17 s, Nip high during 7-22 s, RW high during 12-27 s."
+
+ET3M:
+  enabled: true
+  type: multi_operating_point_ET3
+  line_speed_multipliers: [0.5, 1.0, 2.0]
+  per_operating_point_profile: ET3
+  identify_jointly: true
+  notes: "Only line speed changes; T_ref, controller gains, and plant remain identical."
+
+EVR:
+  enabled: false
+  skip_reason: "Professor says published EVR numbers were not true ramp-only; leave out of reproduction for now."
+
+EV1:
+  enabled: false
+  skip_reason: "Professor says EV1 has same issue in second segment; skip for reproduction."
