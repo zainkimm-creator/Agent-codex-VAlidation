@@ -508,7 +508,7 @@ def dashboard_outputs_route() -> dict[str, object]:
         _dashboard_output_page(
             page_id="controller",
             title="Controller",
-            formula="u_i = Kvel_i*(omega_ref_i - omega_i) + u_ff_i",
+            formula="v_corr_i = (L_i/EA)Kp_star(sigma_i e_i + I_i/TI); omega_ref_i = omega_ss_i + rho_i v_corr_i/R_i; u_i = Kvel_i*(omega_ref_i - omega_i) + u_ff_i",
             input_config=default_config.get("controller", {}) if isinstance(default_config, dict) else {},
             paper_target=paper_targets.get("kp_targets", {}) if isinstance(paper_targets, dict) else {},
             result_points=["Cascade PI plus feedforward is implemented.", "Kp_star targets are read from paper_targets.yaml."],

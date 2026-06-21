@@ -439,10 +439,16 @@ Velocity correction:
 v_corr_i = (L_i / EA) * Kp_star * (e_signed_i + I_i/TI)
 ```
 
+The controller keeps that paper polarity separate from the web-positive plant state by using:
+
+```text
+rho = [-1, +1, +1]
+```
+
 Speed reference:
 
 ```text
-omega_ref_i = omega_ss_i + v_corr_i / R_i
+omega_ref_i = omega_ss_i + rho_i * v_corr_i / R_i
 ```
 
 ### 3.12 Inner Velocity Feedback
@@ -911,31 +917,31 @@ http://127.0.0.1:5173/
 
 ## 6. Current Validation Status
 
-Latest full excitation validation after the tension-consistent initial-state update:
+Latest full excitation validation after the tension-consistent initial-state and controller sign-map update:
 
 ```text
-ET1  dashboard RMSE_theta_percent = 9.4160, paper SN target = 31.4, status = pass/review comparison
-ET3  dashboard RMSE_theta_percent = 15.8818, paper SN target = 22.2, status = pass/review comparison
-ET6  status = review, numerical instability during long run
-ET3M status = review, numerical instability during long combined run
+ET1  dashboard NF RMSE_theta_percent = 1.3146, paper NF target = 2.5, status = pass
+ET3  dashboard NF RMSE_theta_percent = 1.3587, paper NF target = 3.5, status = pass
+ET6  dashboard NF RMSE_theta_percent = 1.3596, paper NF target = 3.4, status = pass
+ET3M dashboard NF RMSE_theta_percent = 1.3513, no NF paper target in config, status = review
 EV1  skipped by exact reproduction rule
 EVR  skipped by exact reproduction rule
 ```
 
-Important diagnosis:
+Important sign-convention resolution:
 
 ```text
 The professor-required controller polarity sigma = [-1, +1, +1] is implemented.
-With the current positive surface-speed convention v_i = omega_i * R_i and boundary v0 = v_ref,
-a positive T1 reference step drives T1 in the wrong direction.
-This is the likely cause of ET6 and ET3M long-run numerical instability.
+The code also uses rho = [-1, +1, +1] to map the UW actuator correction into the plant's positive web-surface direction.
+With that isolated sign map, ET1, ET3, ET6, and ET3M complete without numerical instability.
 ```
 
-Diagnostic only, not committed as a model change:
+Current comparison rule:
 
 ```text
-Using sigma = [+1, +1, +1] in a temporary runtime diagnostic made ET1, ET3, ET6, and ET3M all complete.
-That change was not applied because it contradicts the professor-specified polarity requirement.
+The dashboard exact run is currently NF.
+The comparison CSV uses NF paper targets where available.
+ET3M has only an SN paper target in configs/paper_targets.yaml, so it remains review until an SN ET3M run is generated.
 ```
 
 ## 7. Dashboard Data Flow
@@ -1004,23 +1010,23 @@ npm run build     -> passed
 - `configs/paper_targets.yaml` is the paper-target source of truth.
 - `outputs/` contains generated artifacts and is not treated as source code.
 - Exact reproduction skips `EV1` and `EVR`.
-- The current code keeps the professor-provided controller polarity until the sign convention is explicitly resolved.
+- The current code keeps the professor-provided controller polarity and isolates the UW actuator-to-web sign map.
 
 ## 10. Remaining Issues
 
-- ET6 and ET3M still need final sign-convention resolution for stable full exact reproduction.
+- ET3M still needs a matching SN validation run or an NF paper target before it can be marked like-for-like comparable.
 - Noise/LPF, Drift, and Retuning dashboard pages have comparison tables/placeholders, but full dedicated output-generation scripts still need to be completed for those pages.
 - Some feature PRs are stacked on earlier branches and may show as draft or not mergeable until the previous branches are merged or rebased.
 - The dashboard comparison graphs are available for Logging, Excitation, and Drift; table-first comparison is used where graphing is not yet useful.
 
 ## 11. Next Recommended Task
 
-Resolve the controller sign convention before treating the paper comparison as final:
+Generate the matching sensor-noise validation layer before treating the excitation comparison as final:
 
 ```text
-1. Confirm whether the UW roller speed orientation should be positive or negative in the paper convention.
-2. If UW orientation is reversed, isolate that convention in one mapping function.
-3. Rerun ET1, ET3, ET6, and ET3M with full profile timing.
-4. Regenerate paper-comparison CSV/SVG artifacts.
+1. Add SN excitation generation using sigma = 0.003*T_max and the 100 Hz LPF.
+2. Generate an SN ET3M result so it can be compared to the paper SN target.
+3. Regenerate paper-comparison CSV/SVG artifacts.
+4. Verify the dashboard graph/table pages against the refreshed outputs.
 5. Rerun python -m pytest and npm run build.
 ```

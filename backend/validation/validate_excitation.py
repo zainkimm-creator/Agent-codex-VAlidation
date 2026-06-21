@@ -41,14 +41,18 @@ def _profile_duration_s(name: str) -> float:
     return float(get_profile(name).total_duration_s or 0.0)
 
 
-def _target_percent(profile_name: str, targets: Mapping[str, object]) -> float | None:
-    sn = targets["SN_RMSE_theta_percent"]
-    nf = targets["NF_RMSE_theta_percent"]
-    if isinstance(sn, Mapping) and profile_name in sn:
-        return float(sn[profile_name])
-    if isinstance(nf, Mapping) and profile_name in nf:
-        return float(nf[profile_name])
-    return None
+def _target_for_case(
+    profile_name: str,
+    targets: Mapping[str, object],
+    *,
+    noise_enabled: bool,
+) -> tuple[str | None, float | None]:
+    target_key = "SN_RMSE_theta_percent" if noise_enabled else "NF_RMSE_theta_percent"
+    target_case = "SN" if noise_enabled else "NF"
+    selected = targets[target_key]
+    if isinstance(selected, Mapping) and profile_name in selected:
+        return target_case, float(selected[profile_name])
+    return None, None
 
 
 def run_excitation_validation(
@@ -90,7 +94,7 @@ def run_excitation_validation(
 
         operating_points = generate_et3m_operating_points(0.5) if name == "ET3M" else []
         duration_s = float(duration_override_s if duration_override_s is not None else _profile_duration_s(name))
-        target_percent = _target_percent(name, targets)
+        target_case, target_percent = _target_for_case(name, targets, noise_enabled=False)
         try:
             sim = run_multirate_simulation(
                 MultirateSimulationConfig(
@@ -108,7 +112,7 @@ def run_excitation_validation(
             rmse_theta: float | None = sysid.rmse_theta
             rmse_percent: float | None = 100.0 * sysid.rmse_theta
             pass_fail_status = "pass" if target_percent is not None else "trend"
-            trend_status = "compared with paper target" if target_percent is not None else "no numeric target"
+            trend_status = f"compared with paper {target_case} target" if target_percent is not None else "no matching NF paper target"
             source_csv_path: str | None = sim.csv_path
             failure_reason: str | None = None
         except ValueError as exc:
@@ -129,6 +133,8 @@ def run_excitation_validation(
                 "simulation_duration_s": duration_s,
                 "RMSE_theta": rmse_theta,
                 "RMSE_theta_percent": rmse_percent,
+                "dashboard_case": "NF",
+                "paper_target_case": target_case,
                 "paper_target_percent": target_percent,
                 "pass_fail_status": pass_fail_status,
                 "trend_status": trend_status,

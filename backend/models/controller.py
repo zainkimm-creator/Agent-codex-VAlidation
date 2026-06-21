@@ -9,7 +9,10 @@ from typing import Sequence
 from .equations import R2RParameters, validate_vector
 
 
+# Paper controller polarity is in actuator coordinates; the UW actuator is
+# opposite the positive web-surface direction used by the plant state.
 SIGMA = (-1.0, 1.0, 1.0)
+WEB_SPEED_REFERENCE_POLARITY = (-1.0, 1.0, 1.0)
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
@@ -222,7 +225,7 @@ class CascadePIController:
         )
         omega_ss = steady_state_omega(active_params, self.config.line_speed_m_s, self.config.target_tension_N)
         velocity_ref = tuple(
-            omega_ss[i] + v_corr_m_s[i] / active_params.roller_radius_m[i]
+            omega_ss[i] + WEB_SPEED_REFERENCE_POLARITY[i] * v_corr_m_s[i] / active_params.roller_radius_m[i]
             for i in range(3)
         )
         velocity_error = tuple(velocity_ref[i] - measured_omega[i] for i in range(3))

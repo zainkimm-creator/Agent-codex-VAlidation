@@ -54,6 +54,25 @@ def test_larger_kp_star_creates_larger_corrective_torque():
     assert high_correction > low_correction
 
 
+def test_uw_signed_error_maps_to_higher_web_speed_reference():
+    params = R2RParameters()
+    steady_omega = steady_state_omega(params, 1.0, params.tension_ref_N)
+    state = (
+        params.tension_ref_N[0] - 1.0,
+        params.tension_ref_N[1],
+        params.tension_ref_N[2],
+        *steady_omega,
+    )
+    controller = CascadePIController(
+        ControllerConfig(target_tension_N=params.tension_ref_N, Kp_star=100.0)
+    )
+
+    action = controller.update(state, 0.01, params)
+
+    assert action.signed_tension_error_N[0] < 0.0
+    assert action.velocity_ref_rad_s[0] > steady_omega[0]
+
+
 def test_controller_returns_three_motor_torques():
     params = R2RParameters()
     controller = CascadePIController(ControllerConfig(target_tension_N=params.tension_ref_N))
