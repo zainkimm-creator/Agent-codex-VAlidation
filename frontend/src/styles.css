@@ -1,7 +1,7 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #1e2729;
-  background: #ecebe3;
+  background: #f3f5f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -14,7 +14,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #ecebe3;
+  background: #f3f5f7;
 }
 
 button,
@@ -30,7 +30,7 @@ select {
 }
 
 .sidebar {
-  background: #253235;
+  background: #1f2a33;
   color: #f6f3ea;
   padding: 22px 16px;
   display: flex;
@@ -93,6 +93,7 @@ select {
   gap: 16px;
   min-width: 0;
   max-width: 100vw;
+  background: #f3f5f7;
 }
 
 .topbar {
@@ -226,11 +227,11 @@ h3 {
 }
 
 .panel {
-  background: #fffef8;
-  border: 1px solid #d4d0c1;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
   border-radius: 8px;
   padding: 16px;
-  box-shadow: 0 1px 0 rgba(37, 50, 53, 0.04);
+  box-shadow: 0 1px 0 rgba(31, 42, 51, 0.04);
 }
 
 .controls-panel {
@@ -1040,6 +1041,133 @@ h3 {
   background: #a54539;
 }
 
+.dashboard-page {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.formula-panel,
+.status-panel,
+.data-panel,
+.link-panel,
+.table-panel,
+.plot-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+.status-panel p {
+  margin: 0;
+  color: #4a5963;
+  line-height: 1.45;
+}
+
+.status-badge {
+  width: fit-content;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: #5d6873;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-badge.pass,
+.status-badge.ready,
+.status-badge.available {
+  background: #23705f;
+}
+
+.status-badge.fail,
+.status-badge.missing {
+  background: #a54539;
+}
+
+.status-badge.trend,
+.status-badge.skipped {
+  background: #986b25;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.json-block {
+  max-height: 280px;
+  min-height: 120px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid #d8dee6;
+  border-radius: 7px;
+  padding: 12px;
+  background: #f7f9fb;
+  color: #1e2729;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.disabled-link {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.visual-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plot-panel {
+  min-height: 300px;
+}
+
+.plot-panel img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  border: 1px solid #d8dee6;
+  border-radius: 7px;
+  background: #f7f9fb;
+}
+
+.missing-plot {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b8c0c8;
+  border-radius: 7px;
+  color: #60707c;
+  background: #f7f9fb;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -1080,7 +1208,10 @@ h3 {
   .theory-grid,
   .calculation-list,
   .plant-layout,
-  .plant-detail-grid {
+  .plant-detail-grid,
+  .summary-strip,
+  .detail-grid,
+  .visual-grid {
     grid-template-columns: 1fr;
   }
 

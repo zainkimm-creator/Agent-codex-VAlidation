@@ -38,6 +38,30 @@ def test_plants_route_returns_ten_supplement_plants():
     assert payload["plants"][-1]["plant_id"] == "P10"
 
 
+def test_dashboard_outputs_route_returns_required_pages():
+    response = client.get("/dashboard/outputs")
+    assert response.status_code == 200
+    payload = response.json()
+    titles = [page["title"] for page in payload["pages"]]
+    assert titles == [
+        "Plant Setup",
+        "Model Equations",
+        "Controller",
+        "SysID Setup",
+        "Logging Validation",
+        "Excitation Validation",
+        "Noise/LPF Validation",
+        "Drift Validation",
+        "Retuning Validation",
+        "Export Report",
+    ]
+    logging_page = payload["pages"][4]
+    assert "formula" in logging_page
+    assert "paper_target" in logging_page
+    assert "dashboard_result" in logging_page
+    assert "csv" in logging_page["output_files"]
+
+
 def test_simulate_route_returns_metrics_and_csv_path():
     response = client.post(
         "/simulate",

@@ -5,6 +5,7 @@ function formatValue(value) {
     return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
   }
   if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (Array.isArray(value) || (value && typeof value === 'object')) return JSON.stringify(value);
   return String(value);
 }
 

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import json
 import math
 from pathlib import Path
 from typing import Any, Sequence
 
+import yaml
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -36,6 +39,8 @@ from backend.validation.studies import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
+CONFIG_DIR = PROJECT_ROOT / "configs"
+OUTPUT_DIR = PROJECT_ROOT / "outputs"
 
 app = FastAPI(
     title="R2R System-Identification Dashboard API",
@@ -104,6 +109,109 @@ def _attach_urls(payload: dict[str, Any]) -> dict[str, Any]:
         if key in payload:
             payload[key.replace("_path", "_url")] = _artifact_url(payload.get(key))
     return payload
+
+
+def _read_yaml_config(filename: str) -> dict[str, Any]:
+    path = CONFIG_DIR / filename
+    if not path.exists():
+        return {"_missing": str(path)}
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    return data if isinstance(data, dict) else {}
+
+
+def _read_output_json(relative_path: str | None) -> dict[str, Any] | None:
+    if not relative_path:
+        return None
+    path = OUTPUT_DIR / relative_path
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    return data if isinstance(data, dict) else {"value": data}
+
+
+def _read_output_csv(relative_path: str | None, limit: int = 24) -> list[dict[str, Any]]:
+    if not relative_path:
+        return []
+    path = OUTPUT_DIR / relative_path
+    if not path.exists():
+        return []
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))[:limit]
+
+
+def _file_descriptor(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {"available": False, "path": None, "url": None}
+    return {
+        "available": path.exists(),
+        "path": str(path),
+        "url": _artifact_url(str(path)) if path.exists() else None,
+    }
+
+
+def _rows_from_mapping(mapping: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not mapping:
+        return []
+    return [{"name": key, "value": value} for key, value in mapping.items()]
+
+
+def _plant_table_rows(plants_config: dict[str, Any]) -> list[dict[str, Any]]:
+    plants = plants_config.get("plants", {})
+    if not isinstance(plants, dict):
+        return []
+    return [{"plant_id": plant_id, **values} for plant_id, values in plants.items() if isinstance(values, dict)]
+
+
+def _dashboard_output_page(
+    *,
+    page_id: str,
+    title: str,
+    formula: str,
+    input_config: dict[str, Any],
+    paper_target: dict[str, Any],
+    summary_relative: str | None = None,
+    csv_relative: str | None = None,
+    plot_relative: str | None = None,
+    table_rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    summary_path = OUTPUT_DIR / summary_relative if summary_relative else None
+    csv_path = OUTPUT_DIR / csv_relative if csv_relative else None
+    plot_path = OUTPUT_DIR / plot_relative if plot_relative else None
+    summary = _read_output_json(summary_relative)
+    csv_rows = _read_output_csv(csv_relative)
+    available_rows = csv_rows or table_rows or _rows_from_mapping(input_config)
+    pass_fail = "ready"
+    trend_status = "configuration loaded"
+    dashboard_result: dict[str, Any] = {"status": "configuration loaded"}
+
+    if summary_relative:
+        if summary:
+            pass_fail = str(summary.get("pass_fail_status", "available"))
+            trend_status = str(summary.get("trend_status", "summary loaded"))
+            dashboard_result = summary
+        else:
+            pass_fail = "missing"
+            trend_status = "output summary not generated yet"
+            dashboard_result = {"status": "missing", "expected_summary": str(summary_path)}
+
+    return {
+        "id": page_id,
+        "title": title,
+        "formula": formula,
+        "input_config": input_config,
+        "paper_target": paper_target,
+        "dashboard_result": dashboard_result,
+        "pass_fail": pass_fail,
+        "trend_status": trend_status,
+        "table_rows": available_rows,
+        "output_files": {
+            "json": _file_descriptor(summary_path),
+            "csv": _file_descriptor(csv_path),
+            "plot": _file_descriptor(plot_path),
+        },
+    }
 
 
 def _preview_rows(rows: Sequence[dict[str, float]], limit: int = 8) -> list[dict[str, float]]:
@@ -285,6 +393,157 @@ def validation_part_1_route(_: EmptyRequest | None = None) -> dict[str, object]:
     payload["plant"] = plant
     payload.update(part1_calculation_payload(payload))
     return _attach_urls(payload)
+
+
+@app.get("/dashboard/outputs")
+def dashboard_outputs_route() -> dict[str, object]:
+    default_config = _read_yaml_config("default.yaml")
+    plants_config = _read_yaml_config("plants_p01_p10.yaml")
+    excitation_config = _read_yaml_config("excitation_profiles.yaml")
+    noise_config = _read_yaml_config("noise_lpf.yaml")
+    paper_targets = _read_yaml_config("paper_targets.yaml")
+    equations = equation_summary()
+
+    output_manifest = [
+        {
+            "label": "logging summary",
+            "type": "json",
+            **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "logging_validation.json"),
+        },
+        {
+            "label": "logging results",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "logging_results.csv"),
+        },
+        {
+            "label": "logging plot",
+            "type": "png",
+            **_file_descriptor(OUTPUT_DIR / "figures" / "tlog_vs_rmse.png"),
+        },
+        {
+            "label": "excitation summary",
+            "type": "json",
+            **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "excitation_validation.json"),
+        },
+        {
+            "label": "excitation results",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "excitation_results.csv"),
+        },
+        {
+            "label": "excitation plot",
+            "type": "png",
+            **_file_descriptor(OUTPUT_DIR / "figures" / "excitation_bar.png"),
+        },
+    ]
+
+    validation_config = default_config.get("validation", {}) if isinstance(default_config, dict) else {}
+    pages = [
+        _dashboard_output_page(
+            page_id="plant-setup",
+            title="Plant Setup",
+            formula="plant = {EA, R, J, f, L, T_ref, T_max, v_ref}",
+            input_config=plants_config,
+            paper_target={
+                "source": "configs/plants_p01_p10.yaml",
+                "plant_count": len(plants_config.get("plants", {})) if isinstance(plants_config.get("plants"), dict) else 0,
+            },
+            table_rows=_plant_table_rows(plants_config),
+        ),
+        _dashboard_output_page(
+            page_id="model-equations",
+            title="Model Equations",
+            formula="dT_i/dt = EA/L_i*(v_i - v_{i-1}) + (T_{i-1}v_{i-1} - T_i v_i)/L_i",
+            input_config={
+                "state": default_config.get("state"),
+                "input": default_config.get("input"),
+                "state_vector": equations.get("state_vector"),
+                "input_vector": equations.get("input_vector"),
+            },
+            paper_target=paper_targets.get("simulation", {}) if isinstance(paper_targets, dict) else {},
+            table_rows=equations.get("units") if isinstance(equations.get("units"), list) else None,
+        ),
+        _dashboard_output_page(
+            page_id="controller",
+            title="Controller",
+            formula="u_i = Kvel_i*(omega_ref_i - omega_i) + u_ff_i",
+            input_config=default_config.get("controller", {}) if isinstance(default_config, dict) else {},
+            paper_target=paper_targets.get("kp_targets", {}) if isinstance(paper_targets, dict) else {},
+        ),
+        _dashboard_output_page(
+            page_id="sysid-setup",
+            title="SysID Setup",
+            formula="theta = [kt_UW, kt_Nip, kt_RW, kf_UW, kf_Nip, kf_RW, EA]",
+            input_config=default_config.get("sysid", {}) if isinstance(default_config, dict) else {},
+            paper_target=paper_targets.get("sysid", {}) if isinstance(paper_targets, dict) else {},
+        ),
+        _dashboard_output_page(
+            page_id="logging-validation",
+            title="Logging Validation",
+            formula="RMSE_theta = mean(abs((theta_hat - theta_true) / theta_true))",
+            input_config={"logging_rate_ms": validation_config.get("logging_rate_ms")},
+            paper_target=paper_targets.get("logging_targets", {}) if isinstance(paper_targets, dict) else {},
+            summary_relative="validation_runs/latest/logging_validation.json",
+            csv_relative="csv/logging_results.csv",
+            plot_relative="figures/tlog_vs_rmse.png",
+        ),
+        _dashboard_output_page(
+            page_id="excitation-validation",
+            title="Excitation Validation",
+            formula="T_ref_i(t) = T_ref_i*(1 + 0.20*step_i(t))",
+            input_config=excitation_config,
+            paper_target=paper_targets.get("excitation_targets", {}) if isinstance(paper_targets, dict) else {},
+            summary_relative="validation_runs/latest/excitation_validation.json",
+            csv_relative="csv/excitation_results.csv",
+            plot_relative="figures/excitation_bar.png",
+        ),
+        _dashboard_output_page(
+            page_id="noise-lpf-validation",
+            title="Noise/LPF Validation",
+            formula="T_meas = LPF_100Hz(T_true + N(0, (0.003*T_max)^2))",
+            input_config=noise_config,
+            paper_target=paper_targets.get("noise_lpf_targets", {}) if isinstance(paper_targets, dict) else {},
+            summary_relative="validation_runs/latest/noise_lpf_validation.json",
+            csv_relative="csv/noise_lpf_results.csv",
+            plot_relative="figures/noise_lpf_validation.png",
+        ),
+        _dashboard_output_page(
+            page_id="drift-validation",
+            title="Drift Validation",
+            formula="theta_drift = theta_nominal*(1 + delta)",
+            input_config={"drift_scenarios": validation_config.get("drift_scenarios")},
+            paper_target=paper_targets.get("drift_targets", {}) if isinstance(paper_targets, dict) else {},
+            summary_relative="validation_runs/latest/drift_validation.json",
+            csv_relative="csv/drift_results.csv",
+            plot_relative="figures/drift_validation.png",
+        ),
+        _dashboard_output_page(
+            page_id="retuning-validation",
+            title="Retuning Validation",
+            formula="cost = w_RMSE*RMSE + w_OS*overshoot + w_t*t90 + w_u*effort",
+            input_config=default_config.get("retuning", {}) if isinstance(default_config, dict) else {},
+            paper_target=paper_targets.get("retuning_targets", {}) if isinstance(paper_targets, dict) else {},
+            summary_relative="validation_runs/latest/retuning_validation.json",
+            csv_relative="csv/retuning_results.csv",
+            plot_relative="figures/retuning_validation.png",
+        ),
+        _dashboard_output_page(
+            page_id="export-report",
+            title="Export Report",
+            formula="report = configs + paper_targets + output_summaries + csv_tables + figures",
+            input_config={"output_root": str(OUTPUT_DIR), "manifest_count": len(output_manifest)},
+            paper_target={"source": "configs/paper_targets.yaml", "sections": list(paper_targets.keys())},
+            csv_relative="csv/logging_results.csv",
+            table_rows=output_manifest,
+        ),
+    ]
+
+    return {
+        "output_root": str(OUTPUT_DIR),
+        "config_root": str(CONFIG_DIR),
+        "pages": pages,
+        "manifest": output_manifest,
+    }
 
 
 @app.post("/validate/excitation")
