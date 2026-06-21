@@ -68,6 +68,8 @@ def test_dashboard_outputs_route_returns_required_pages():
     noise_page = payload["pages"][6]
     assert noise_page["display_mode"] == "table"
     assert noise_page["output_files"]["csv"]["url"].endswith("noise_lpf_paper_comparison.csv")
+    retuning_page = payload["pages"][8]
+    assert "sum_i w_i" in retuning_page["formula"]
 
 
 def test_simulate_route_returns_metrics_and_csv_path():
@@ -153,6 +155,7 @@ def test_validation_routes_return_json_artifacts():
     retune_payload = retune_response.json()
     assert retune_payload["metrics"]["supports_HGS_BO5_fewer_real_evaluations_than_CS_BO30"] is True
     assert len(retune_payload["calculations"]) >= 2
+    assert "sum_i w_i" in retune_payload["calculations"][0]["formula"]
     assert retune_payload["plot_url"].endswith("retuning_cost.svg")
 
 

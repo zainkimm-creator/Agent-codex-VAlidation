@@ -604,7 +604,7 @@ def dashboard_outputs_route() -> dict[str, object]:
         _dashboard_output_page(
             page_id="retuning-validation",
             title="Retuning Validation",
-            formula="cost = w_RMSE*RMSE + w_OS*overshoot + w_t*t90 + w_u*effort",
+            formula="S = sum_i w_i*(RMSE_i/1 + OS_i/100 + t90_i/15 + Utotal_i/200)",
             input_config=default_config.get("retuning", {}) if isinstance(default_config, dict) else {},
             paper_target=paper_targets.get("retuning_targets", {}) if isinstance(paper_targets, dict) else {},
             summary_relative=comparisons["retuning"]["relative_summary"],

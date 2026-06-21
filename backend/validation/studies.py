@@ -20,6 +20,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FIGURES_DIR = PROJECT_ROOT / "reports" / "figures"
 SUMMARY_DIR = PROJECT_ROOT / "reports" / "validation_summary"
 DATA_DIR = PROJECT_ROOT / "data" / "processed"
+RETUNING_SCORE_FORMULA = (
+    "S = sum_i w_i*(RMSE_i/1 + OS_i/100 + t90_i/15 + Utotal_i/200)"
+)
 
 
 def _write_summary(name: str, payload: Mapping[str, object]) -> str:
@@ -253,13 +256,80 @@ def drift_study(params: R2RParameters | None = None) -> dict[str, object]:
     return _artifact_payload(payload, plot_path, summary_path)
 
 
-def _retune_cost(metrics: Mapping[str, float]) -> float:
-    return (
-        metrics["tension_rmse_N"]
-        + 0.25 * max(0.0, metrics["max_overshoot_N"])
-        + 0.15 * metrics["t90_s"]
-        + 0.015 * metrics["control_effort_rms_Nm"]
-    )
+def _retune_score(
+    rows: Sequence[Mapping[str, float]],
+    params: R2RParameters,
+) -> dict[str, float]:
+    """Return the paper Eq. (9)-style retuning score for simulated rows."""
+
+    if not rows:
+        return {
+            "final_cost": math.nan,
+            "score_rmse_term": math.nan,
+            "score_overshoot_term": math.nan,
+            "score_t90_term": math.nan,
+            "score_control_term": math.nan,
+        }
+
+    tension_names = ("T1", "T2", "T3")
+    input_names = ("u_UW", "u_Nip", "u_RW")
+    targets = params.tension_ref_N
+
+    # The current dashboard retuning run is a disturbance-response simulation,
+    # not a setpoint-step replay. Use target magnitudes as the normalization
+    # scale for Eq. (9)'s Delta T_ref terms so overshoot stays dimensionless.
+    delta_refs = tuple(max(abs(target), 1.0) for target in targets)
+    weight_total = sum(delta_refs)
+    weights = tuple(delta / weight_total for delta in delta_refs)
+
+    time_values = [float(row["time_s"]) for row in rows]
+    dt_values = [
+        max(0.0, time_values[index + 1] - time_values[index])
+        for index in range(len(time_values) - 1)
+    ]
+    duration = time_values[-1] - time_values[0] if len(time_values) > 1 else 0.0
+
+    score = 0.0
+    rmse_term = 0.0
+    overshoot_term = 0.0
+    t90_term = 0.0
+    control_term = 0.0
+    for channel, (tension_name, input_name) in enumerate(zip(tension_names, input_names, strict=True)):
+        target = float(targets[channel])
+        delta_ref = delta_refs[channel]
+        values = [float(row[tension_name]) for row in rows]
+        errors = [value - target for value in values]
+        rmse_i = math.sqrt(sum(error * error for error in errors) / len(errors))
+        os_i = max(0.0, (max(values) - target) / delta_ref) * 100.0
+
+        band = 0.10 * delta_ref
+        t90_i = duration
+        for row, value in zip(rows, values, strict=True):
+            if abs(value - target) <= band:
+                t90_i = float(row["time_s"]) - time_values[0]
+                break
+
+        u_total_i = 0.0
+        for index, dt in enumerate(dt_values):
+            u_total_i += float(rows[index][input_name]) ** 2 * dt
+
+        weighted_rmse = weights[channel] * (rmse_i / 1.0)
+        weighted_os = weights[channel] * (os_i / 100.0)
+        weighted_t90 = weights[channel] * (t90_i / 15.0)
+        weighted_control = weights[channel] * (u_total_i / 200.0)
+        rmse_term += weighted_rmse
+        overshoot_term += weighted_os
+        t90_term += weighted_t90
+        control_term += weighted_control
+        score += weighted_rmse + weighted_os + weighted_t90 + weighted_control
+
+    return {
+        "final_cost": score,
+        "score_rmse_term": rmse_term,
+        "score_overshoot_term": overshoot_term,
+        "score_t90_term": t90_term,
+        "score_control_term": control_term,
+    }
 
 
 def _evaluate_controller(config: ControllerConfig, params: R2RParameters) -> tuple[float, dict[str, float]]:
@@ -270,7 +340,9 @@ def _evaluate_controller(config: ControllerConfig, params: R2RParameters) -> tup
         excitation=get_excitation_profile("ET3", 0.04),
         write_output=False,
     )
-    cost = _retune_cost(sim.metrics)
+    score_parts = _retune_score(sim.rows, params)
+    cost = score_parts["final_cost"]
+    sim.metrics.update(score_parts)
     return cost, sim.metrics
 
 
@@ -310,6 +382,10 @@ def retuning_study(params: R2RParameters | None = None) -> dict[str, object]:
             "overshoot_N": best_metrics.get("max_overshoot_N", math.nan),
             "t90_s": best_metrics.get("t90_s", math.nan),
             "control_effort_rms_Nm": best_metrics.get("control_effort_rms_Nm", math.nan),
+            "score_rmse_term": best_metrics.get("score_rmse_term", math.nan),
+            "score_overshoot_term": best_metrics.get("score_overshoot_term", math.nan),
+            "score_t90_term": best_metrics.get("score_t90_term", math.nan),
+            "score_control_term": best_metrics.get("score_control_term", math.nan),
         }
 
     cs_candidates = [
@@ -350,7 +426,7 @@ def retuning_study(params: R2RParameters | None = None) -> dict[str, object]:
     payload = {
         "study": "retuning",
         "metrics": metrics,
-        "cost_function": "RMSE + 0.25*overshoot + 0.15*t90 + 0.015*control_effort",
+        "cost_function": RETUNING_SCORE_FORMULA,
         "supports_HGS_BO5_fewer_real_evaluations_than_CS_BO30": hgs5_evals < cs_evals,
         "plot_path": plot_path,
     }

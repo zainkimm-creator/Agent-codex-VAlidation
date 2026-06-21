@@ -505,35 +505,37 @@ def retuning_calculation_payload(payload: Mapping[str, object]) -> dict[str, obj
     calculations: list[dict[str, object]] = []
     if best:
         rmse = float(best["tension_rmse_N"])
-        overshoot = max(0.0, float(best["overshoot_N"]))
-        t90 = float(best["t90_s"])
-        effort = float(best["control_effort_rms_Nm"])
-        cost = rmse + 0.25 * overshoot + 0.15 * t90 + 0.015 * effort
+        rmse_term = float(best.get("score_rmse_term", best["tension_rmse_N"]))
+        overshoot_term = float(best.get("score_overshoot_term", 0.0))
+        t90_term = float(best.get("score_t90_term", 0.0))
+        control_term = float(best.get("score_control_term", 0.0))
+        cost = rmse_term + overshoot_term + t90_term + control_term
         calculations.append(
             _calculation(
                 title="Final Cost Example",
                 parameter="final_cost",
-                formula="RMSE + 0.25*overshoot + 0.15*t90 + 0.015*control_effort",
+                formula="S = sum_i w_i*(RMSE_i/1 + OS_i/100 + t90_i/15 + Utotal_i/200)",
                 values={
                     "method": str(best["method"]),
                     "tension_rmse_N": _clean_number(rmse),
-                    "overshoot_N": _clean_number(overshoot),
-                    "t90_s": _clean_number(t90),
-                    "control_effort_rms_Nm": _clean_number(effort),
+                    "score_rmse_term": _clean_number(rmse_term),
+                    "score_overshoot_term": _clean_number(overshoot_term),
+                    "score_t90_term": _clean_number(t90_term),
+                    "score_control_term": _clean_number(control_term),
                 },
                 substitution=(
-                    f"{_format_number(rmse)} + 0.25*{_format_number(overshoot)} + "
-                    f"0.15*{_format_number(t90)} + 0.015*{_format_number(effort)}"
+                    f"{_format_number(rmse_term)} + {_format_number(overshoot_term)} + "
+                    f"{_format_number(t90_term)} + {_format_number(control_term)}"
                 ),
                 result=f"{best['method']} final_cost = {_format_number(cost)}",
-                summary="The best retuning method is the row with the lowest final cost.",
+                summary="The best retuning method is the row with the lowest paper-style score.",
                 steps=[
                     f"Use retuning method {best['method']}.",
-                    f"Read tension RMSE = {_format_number(rmse)}.",
-                    f"Read positive overshoot = {_format_number(overshoot)}.",
-                    f"Read t90 = {_format_number(t90)} s.",
-                    f"Read control effort RMS = {_format_number(effort)} N*m.",
-                    f"Apply the cost equation to obtain {_format_number(cost)}.",
+                    f"Read weighted RMSE term = {_format_number(rmse_term)}.",
+                    f"Read weighted overshoot term = {_format_number(overshoot_term)}.",
+                    f"Read weighted t90 term = {_format_number(t90_term)}.",
+                    f"Read weighted control-effort term = {_format_number(control_term)}.",
+                    f"Add terms to obtain final_cost = {_format_number(cost)}.",
                 ],
             )
         )

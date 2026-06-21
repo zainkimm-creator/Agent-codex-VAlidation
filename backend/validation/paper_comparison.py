@@ -504,7 +504,10 @@ def _retuning_comparison(targets: Mapping[str, Any]) -> dict[str, Any]:
                 "status": _status(delta, tolerance=0.1),
             }
         )
-    points = ["Paper target: HGS+BO(5) improves cost with 5 real evaluations.", "Dashboard cost scale is currently provisional."]
+    points = [
+        "Paper target: HGS+BO(5) improves cost with 5 real evaluations.",
+        "Dashboard cost uses the paper Eq. (9)-style score on current simulation rows.",
+    ]
     return _artifact_record("retuning", rows, points, "table", None)
 
 

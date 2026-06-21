@@ -477,11 +477,13 @@ Compared methods:
 Cost function:
 
 ```text
-cost = RMSE + 0.25*overshoot + 0.15*t90 + 0.015*control_effort
+S = sum_i w_i*(RMSE_i/1 + OS_i/100 + t90_i/15 + Utotal_i/200)
 ```
 
 Outputs:
 
+- `outputs/csv/retuning_results.csv`
+- `outputs/csv/retuning_paper_comparison.csv`
 - `reports/figures/retuning_cost.svg`
 - `reports/validation_summary/retuning_summary.json`
 

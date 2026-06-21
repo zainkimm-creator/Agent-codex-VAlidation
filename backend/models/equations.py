@@ -439,7 +439,7 @@ def equation_summary() -> dict[str, object]:
                 "equation": "S = sum_{i=1}^n w_i (RMSE_i/1 + OS_i/100 + t90_i/15 + U_total,i/200); w_i = |Delta T_ref,i|/sum_j |Delta T_ref,j|; RMSE_i = sqrt(N^-1 sum_k (T_i(t_k) - T_ref,i)^2); OS_i = max(0, (T_i,peak - T_ref,i,new)/|Delta T_ref,i|)*100; U_total,i = integral_0^Tsim u_i^2(t) dt",
                 "variables": "S combines tracking error, overshoot, rise time to 90%, and total squared control effort.",
                 "paper_use": "The PDF links this score to Table 3/Figure 10 and the HGS+BO(5) result: median cost 0.342 with five real evaluations versus CS-BO(30) at 0.407.",
-                "dashboard_note": "The dashboard retuning study uses a related cost combining RMSE, overshoot, t90, and control effort.",
+                "dashboard_note": "The dashboard retuning study uses this paper-style score on the generated simulation response.",
             },
             {
                 "number": "U-10",

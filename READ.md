@@ -804,13 +804,14 @@ dt = sample_time_s
 
 ### 4.20 Retuning Cost Form
 
-Dashboard retuning uses a cost based on:
+Dashboard retuning uses the paper Eq. (9)-style score:
 
 ```text
-tension RMSE
-overshoot
-t90 or rise-time behavior
-control effort
+S = sum_i w_i*(RMSE_i/1 + OS_i/100 + t90_i/15 + Utotal_i/200)
+w_i = |Delta Tref_i| / sum_j |Delta Tref_j|
+RMSE_i = sqrt(mean((T_i(t_k) - Tref_i)^2))
+OS_i = max(0, (T_i,peak - Tref_i,new)/|Delta Tref_i|) * 100
+Utotal_i = integral(u_i(t)^2 dt)
 ```
 
 Paper targets compare:
@@ -1215,10 +1216,10 @@ Dominant dashboard degradation source = J
 ### 8.5 Retuning
 
 ```text
-CS-BO(30)  dashboard cost = 37.8384, paper median cost = 0.407, status = review
-HGS-only   dashboard cost = 37.8384, paper median cost = 0.403, status = review
-HGS+BO(5)  dashboard cost = 37.8384, paper median cost = 0.342, status = review
-HGS+BO(10) dashboard cost = 37.8384, paper median cost = 0.337, status = review
+CS-BO(30)  dashboard score = 21.3559, paper median cost = 0.407, status = review
+HGS-only   dashboard score = 21.3559, paper median cost = 0.403, status = review
+HGS+BO(5)  dashboard score = 21.3559, paper median cost = 0.342, status = review
+HGS+BO(10) dashboard score = 21.3559, paper median cost = 0.337, status = review
 Budget trend: HGS+BO(5) uses fewer real evaluations than CS-BO(30).
 ```
 
@@ -1279,7 +1280,7 @@ The dashboard reads backend-generated outputs rather than hard-coding paper valu
 SN excitation errors are much lower than paper SN targets, so SN rows are marked review.
 Logging 20 ms currently differs from the paper 23.2 percent target and is marked review.
 Drift f and J numeric comparisons remain review.
-Retuning cost scale is provisional and remains review against paper median costs.
+Retuning uses the paper-style score, but numeric costs remain review against paper median costs.
 Some older API comments and request fields still carry voltage-style naming, while the focused paper-validation simulator uses motor_torque_Nm.
 Stacked feature PRs may need rebase or previous branch merges before final merge.
 ```
@@ -1289,6 +1290,6 @@ Stacked feature PRs may need rebase or previous branch merges before final merge
 ```text
 1. Calibrate sensor-noise excitation so SN comparisons reproduce the paper scale more closely.
 2. Revisit logging validation at 10-20 ms and confirm whether the paper target assumes repeated trials or physical-log variance.
-3. Normalize retuning cost scale against the paper score definition before calling retuning final.
+3. Calibrate retuning simulation conditions before calling retuning final.
 4. Rerun python -m pytest and npm run build after each calibration change.
 ```
