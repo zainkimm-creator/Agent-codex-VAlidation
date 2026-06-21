@@ -431,7 +431,7 @@ def equation_summary() -> dict[str, object]:
                 "equation": "theta_init = alpha*theta_true, alpha in {1.5, 2, 5, 10, 50}; error_j = |theta_est,j - theta_true,j|/theta_true,j*100; RMSE_theta = n^-1 sum_i |(theta_hat_i - theta_i)/theta_i|*100; RMSE_y = n^-1 sum_i RMSE_i",
                 "variables": "alpha scales the initial guess; error_j is per-parameter relative error; RMSE_theta and RMSE_y aggregate SysID and tracking errors.",
                 "paper_use": "The PDF uses these metrics to compare convergence basins, data designs, and validation step responses.",
-                "dashboard_note": "The backend reports RMSE_theta as a root-mean-square relative error, so the dashboard labels it as the implementation aggregate.",
+                "dashboard_note": "The backend uses the paper aggregate: mean absolute relative parameter error under the paper label RMSE_theta.",
             },
             {
                 "number": "(9)",
@@ -525,7 +525,7 @@ def equation_summary() -> dict[str, object]:
             },
             {
                 "title": "SysID parameter RMSE",
-                "equation": "RMSE_theta = sqrt(mean(relative_error_i^2))",
+                "equation": "RMSE_theta = mean(abs(relative_error_i))",
                 "variables": "relative_error_i = (estimate_i - truth_i) / truth_i.",
                 "backend_use": "Used by estimate_parameters() and all SysID validation result tables.",
             },

@@ -749,15 +749,15 @@ Implementation metric:
 
 ```text
 relative_error_i = (theta_est_i - theta_true_i) / theta_true_i
-RMSE_theta = sqrt(mean(relative_error_i^2))
+RMSE_theta = mean(abs(relative_error_i))
 RMSE_theta_percent = 100 * RMSE_theta
 ```
 
 Note:
 
 ```text
-configs/paper_targets.yaml still stores the professor/paper text as a mean absolute relative formula.
-The implemented metric in backend/sysid/metrics.py is root-mean-square relative error.
+The paper labels this metric RMSE_theta, but the extracted formula is mean absolute relative parameter error.
+backend/sysid/metrics.py now uses that paper aggregate for dashboard comparisons.
 ```
 
 ### 4.18 Sensor Noise
@@ -1287,9 +1287,8 @@ Stacked feature PRs may need rebase or previous branch merges before final merge
 ## 12. Next Recommended Task
 
 ```text
-1. Reconcile implemented RMSE_theta with the paper-target YAML formula text.
-2. Calibrate sensor-noise excitation so SN comparisons reproduce the paper scale more closely.
-3. Revisit logging validation at 10-20 ms and confirm whether the paper target assumes repeated trials or physical-log variance.
-4. Normalize retuning cost scale against the paper score definition before calling retuning final.
-5. Rerun python -m pytest and npm run build after each calibration change.
+1. Calibrate sensor-noise excitation so SN comparisons reproduce the paper scale more closely.
+2. Revisit logging validation at 10-20 ms and confirm whether the paper target assumes repeated trials or physical-log variance.
+3. Normalize retuning cost scale against the paper score definition before calling retuning final.
+4. Rerun python -m pytest and npm run build after each calibration change.
 ```

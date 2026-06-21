@@ -14,13 +14,13 @@ def test_rmse_theta_known_example_passes():
         "EA": 100.0,
     }
     theta_est = {
-        "kt_UW": 1.1,
-        "kt_Nip": 1.8,
-        "kt_RW": 4.4,
-        "kf_UW": 4.5,
-        "kf_Nip": 11.0,
-        "kf_RW": 18.0,
-        "EA": 110.0,
+        "kt_UW": 1.0,
+        "kt_Nip": 2.2,
+        "kt_RW": 3.2,
+        "kf_UW": 6.5,
+        "kf_Nip": 6.0,
+        "kf_RW": 30.0,
+        "EA": 40.0,
     }
 
-    assert rmse_theta(theta_est, theta_true) == approx(0.1)
+    assert rmse_theta(theta_est, theta_true) == approx(0.3)

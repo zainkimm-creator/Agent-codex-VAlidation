@@ -208,39 +208,40 @@ def sysid_calculation_payload(
                 },
                 substitution=f"({_format_number(estimate)} - {_format_number(truth)}) / {_format_number(truth)}",
                 result=f"{name} relative_error = {_format_number(relative_error)}",
-                summary="This parameter contribution is squared before it enters RMSE_theta.",
+                summary="This parameter contribution enters RMSE_theta through its absolute relative value.",
                 steps=[
                     f"Read the SysID estimate for {name}: {_format_number(estimate)}.",
                     f"Read the true/reference value for {name}: {_format_number(truth)}.",
                     f"Compute absolute error: estimate - truth = {_format_number(estimate - truth)}.",
                     f"Normalize by truth: {_format_number(estimate - truth)} / {_format_number(truth)} = {_format_number(relative_error)}.",
-                    "This relative error is later squared and included in RMSE_theta.",
+                    "Take the absolute value before averaging it into RMSE_theta.",
                 ],
             )
         )
 
     if rel_errors:
-        rmse_theta = math.sqrt(sum(error * error for error in rel_errors) / len(rel_errors))
+        absolute_error_sum = sum(abs(error) for error in rel_errors)
+        rmse_theta = absolute_error_sum / len(rel_errors)
         calculations.append(
             _calculation(
                 title="SysID Parameter RMSE",
                 parameter="RMSE_theta",
-                formula="sqrt(mean(relative_error_i^2))",
+                formula="mean(abs(relative_error_i))",
                 values={
                     "parameters": float(len(rel_errors)),
-                    "relative_error_square_sum": _clean_number(sum(error * error for error in rel_errors)),
+                    "absolute_relative_error_sum": _clean_number(absolute_error_sum),
                 },
                 substitution=(
-                    f"sqrt({_format_number(sum(error * error for error in rel_errors))} / {len(rel_errors)})"
+                    f"{_format_number(absolute_error_sum)} / {len(rel_errors)}"
                 ),
                 result=f"RMSE_theta = {_format_number(rmse_theta)}",
                 summary="A lower RMSE_theta means the identified parameters are closer to the true model parameters.",
                 steps=[
                     f"Collect the {len(rel_errors)} relative errors from kt_UW, kt_Nip, kt_RW, kf_UW, kf_Nip, kf_RW, and EA.",
-                    "Square each relative error so signs do not cancel.",
-                    f"Add squared errors: {_format_number(sum(error * error for error in rel_errors))}.",
+                    "Take the absolute value of each relative error so signs do not cancel.",
+                    f"Add absolute relative errors: {_format_number(absolute_error_sum)}.",
                     f"Divide by parameter count: {len(rel_errors)}.",
-                    f"Take the square root to obtain RMSE_theta = {_format_number(rmse_theta)}.",
+                    f"Report the paper aggregate as RMSE_theta = {_format_number(rmse_theta)}.",
                 ],
             )
         )

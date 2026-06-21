@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -15,16 +14,17 @@ def rmse_theta(
     theta_est: Mapping[str, float] | Sequence[float],
     theta_true: Mapping[str, float] | Sequence[float],
 ) -> float:
-    """Return root-mean-square relative parameter error.
+    """Return the paper's aggregate relative parameter error.
 
-    `RMSE_theta = sqrt(mean(((theta_est_i - theta_true_i)/theta_true_i)^2))`
+    The paper labels this quantity `RMSE_theta`, but defines it as
+    `mean(abs((theta_est_i - theta_true_i)/theta_true_i))`.
     """
 
     estimate = theta_array(theta_est)
     truth = theta_array(theta_true)
     denominators = np.where(np.abs(truth) > 1e-12, np.abs(truth), 1.0)
     relative = (estimate - truth) / denominators
-    return float(math.sqrt(float(np.mean(relative * relative))))
+    return float(np.mean(np.abs(relative)))
 
 
 def parameter_error_table(
