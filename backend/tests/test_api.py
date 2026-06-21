@@ -55,6 +55,8 @@ def test_dashboard_outputs_route_returns_required_pages():
         "Retuning Validation",
         "Export Report",
     ]
+    for page in payload["pages"]:
+        assert page["output_files"]["csv"]["available"], page["title"]
     logging_page = payload["pages"][4]
     assert "formula" in logging_page
     assert "paper_target" in logging_page

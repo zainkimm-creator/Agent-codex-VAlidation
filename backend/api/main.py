@@ -142,6 +142,28 @@ def _read_output_csv(relative_path: str | None, limit: int = 24) -> list[dict[st
         return list(csv.DictReader(handle))[:limit]
 
 
+def _csv_cell(value: Any) -> Any:
+    if isinstance(value, dict | list | tuple):
+        return json.dumps(value, separators=(",", ":"))
+    return value
+
+
+def _write_table_csv(path: Path, rows: Sequence[dict[str, Any]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    output_rows = list(rows) or [{"status": "no rows"}]
+    fieldnames: list[str] = []
+    for row in output_rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in output_rows:
+            writer.writerow({key: _csv_cell(row.get(key, "")) for key in fieldnames})
+    return path
+
+
 def _file_descriptor(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {"available": False, "path": None, "url": None}
@@ -198,6 +220,9 @@ def _dashboard_output_page(
             pass_fail = "missing"
             trend_status = "output summary not generated yet"
             dashboard_result = {"status": "missing", "expected_summary": str(summary_path)}
+
+    if csv_path is None and available_rows:
+        csv_path = _write_table_csv(OUTPUT_DIR / "csv" / f"{page_id}_table.csv", available_rows)
 
     return {
         "id": page_id,
@@ -619,7 +644,6 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="report = configs + paper_targets + output_summaries + csv_tables + figures",
             input_config={"output_root": str(OUTPUT_DIR), "manifest_count": len(output_manifest)},
             paper_target={"source": "configs/paper_targets.yaml", "sections": list(paper_targets.keys())},
-            csv_relative="csv/logging_results.csv",
             table_rows=output_manifest,
             result_points=["Use the CSV and plot links on each validation page for export."],
             display_mode="table",
