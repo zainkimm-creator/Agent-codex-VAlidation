@@ -1,0 +1,35 @@
+# configs/noise_lpf.yaml
+# Source: professor reply email.
+
+sensor_noise:
+  final_dataset_uses_single_seed: true
+  seed: 0
+  generator: numpy.default_rng
+  model: additive_iid_gaussian_per_tension_channel
+  sigma_fraction_of_Tmax: 0.003
+  sigma_definition: "0.3% of T_max load-cell full scale, not T_ref"
+  added_to: measured_tensions
+  generate_once_up_front: true
+  per_plant_sigma_N:
+    P01: 0.120
+    P02: 0.648
+    P03: 2.700
+    P04: 3.375
+    P05: 2.160
+    P06: 2.295
+    P07: 3.060
+    P08: 9.180
+    P09: 3.600
+    P10: 3.600
+
+low_pass_filter:
+  type: first_order
+  cutoff_Hz: 100
+  applied_after_noise: true
+
+logging:
+  NF_Tlog_ms: 5
+  SN_Tlog_ms: 20
+
+notes:
+  - "Supplement statement 'x3 seeds = 210 runs' is a leftover from an early pilot; final dataset uses seed 0 only."
