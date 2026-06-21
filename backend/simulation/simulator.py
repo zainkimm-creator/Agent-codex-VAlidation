@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import csv
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping, Sequence
 
 import yaml
 
+from backend.excitation.generators import tension_reference_delta
+from backend.excitation.profiles import SkippedExcitationError
 from backend.models.controller import CascadePIController, ControllerConfig
 from backend.models.equations import R2RParameters
 from backend.models.r2r_dynamics import R2RDynamicsParams, r2r_derivatives, surface_velocities
@@ -162,6 +164,30 @@ def _initial_state(plant: PlantConfig) -> tuple[float, ...]:
     return plant.target_tensions_N + omega
 
 
+def _profile_name_for_simulation(excitation_type: str) -> str | None:
+    normalized = excitation_type.strip()
+    if not normalized or normalized.lower() == "none":
+        return None
+    if normalized == "ET3M":
+        return "ET3"
+    return normalized
+
+
+def _target_tensions_at_time(
+    plant: PlantConfig,
+    excitation_type: str,
+    time_s: float,
+) -> tuple[float, float, float]:
+    profile_name = _profile_name_for_simulation(excitation_type)
+    if profile_name is None:
+        return plant.target_tensions_N
+    try:
+        delta = tension_reference_delta(profile_name, time_s, plant.target_tensions_N, exact_mode=True)
+    except (SkippedExcitationError, ValueError):
+        return plant.target_tensions_N
+    return tuple(plant.target_tensions_N[i] + delta[i] for i in range(3))  # type: ignore[return-value]
+
+
 def _write_csv(rows: Sequence[dict[str, float | str | bool]], path: Path) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -199,7 +225,9 @@ def run_multirate_simulation(
 
     for step in range(total_steps + 1):
         time_s = step * active_config.dt_s
+        target_tensions = _target_tensions_at_time(plant, active_config.excitation_type, time_s)
         if step % control_interval_steps == 0:
+            controller.config = replace(controller.config, target_tension_N=target_tensions)
             action = controller.update(state, active_config.Ts_s, controller_params)
             held_torque = action.motor_torque_Nm
             control_update_steps.append(step)
@@ -220,9 +248,9 @@ def run_multirate_simulation(
                 "u_UW": held_torque[0],
                 "u_Nip": held_torque[1],
                 "u_RW": held_torque[2],
-                "Tref1": plant.target_tensions_N[0],
-                "Tref2": plant.target_tensions_N[1],
-                "Tref3": plant.target_tensions_N[2],
+                "Tref1": target_tensions[0],
+                "Tref2": target_tensions[1],
+                "Tref3": target_tensions[2],
                 "plant_id": plant.plant_id,
                 "excitation_type": active_config.excitation_type,
                 "Tlog_ms": active_config.Tlog_s * 1000.0,

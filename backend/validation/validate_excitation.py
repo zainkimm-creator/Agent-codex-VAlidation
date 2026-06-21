@@ -55,7 +55,7 @@ def run_excitation_validation(
     *,
     plant_id: str = "P01",
     excitation_names: Sequence[str] = EXACT_EXCITATIONS,
-    duration_override_s: float | None = 0.2,
+    duration_override_s: float | None = None,
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     targets_path: Path = DEFAULT_TARGETS_PATH,
 ) -> dict[str, object]:
@@ -90,21 +90,34 @@ def run_excitation_validation(
 
         operating_points = generate_et3m_operating_points(0.5) if name == "ET3M" else []
         duration_s = float(duration_override_s if duration_override_s is not None else _profile_duration_s(name))
-        sim = run_multirate_simulation(
-            MultirateSimulationConfig(
-                plant_id=plant_id,
-                duration_s=duration_s,
-                Tlog_s=0.005,
-                excitation_type=name,
-                Kp_star=100.0,
-                output_name=f"excitation_source_{name}.csv",
-            ),
-            output_dir=output_paths["csv"],
-        )
-        params = sim.plant.controller_params()
-        sysid = estimate_parameters(sim.rows, params, params, summary_name=None)
         target_percent = _target_percent(name, targets)
-        rmse_percent = 100.0 * sysid.rmse_theta
+        try:
+            sim = run_multirate_simulation(
+                MultirateSimulationConfig(
+                    plant_id=plant_id,
+                    duration_s=duration_s,
+                    Tlog_s=0.005,
+                    excitation_type=name,
+                    Kp_star=100.0,
+                    output_name=f"excitation_source_{name}.csv",
+                ),
+                output_dir=output_paths["csv"],
+            )
+            params = sim.plant.controller_params()
+            sysid = estimate_parameters(sim.rows, params, params, summary_name=None)
+            rmse_theta: float | None = sysid.rmse_theta
+            rmse_percent: float | None = 100.0 * sysid.rmse_theta
+            pass_fail_status = "pass" if target_percent is not None else "trend"
+            trend_status = "compared with paper target" if target_percent is not None else "no numeric target"
+            source_csv_path: str | None = sim.csv_path
+            failure_reason: str | None = None
+        except ValueError as exc:
+            rmse_theta = None
+            rmse_percent = None
+            pass_fail_status = "review"
+            trend_status = "simulation became numerically invalid"
+            source_csv_path = None
+            failure_reason = str(exc)
         rows.append(
             {
                 "plant_id": plant_id,
@@ -114,16 +127,17 @@ def run_excitation_validation(
                 "operating_points": len(operating_points) or 1,
                 "profile_total_duration_s": _profile_duration_s(name),
                 "simulation_duration_s": duration_s,
-                "RMSE_theta": sysid.rmse_theta,
+                "RMSE_theta": rmse_theta,
                 "RMSE_theta_percent": rmse_percent,
                 "paper_target_percent": target_percent,
-                "pass_fail_status": "pass" if target_percent is not None else "trend",
-                "trend_status": "compared with paper target" if target_percent is not None else "no numeric target",
-                "source_csv_path": sim.csv_path,
+                "pass_fail_status": pass_fail_status,
+                "trend_status": trend_status,
+                "failure_reason": failure_reason,
+                "source_csv_path": source_csv_path,
             }
         )
 
-    active_rows = [row for row in rows if not row["skipped"]]
+    active_rows = [row for row in rows if not row["skipped"] and row["RMSE_theta_percent"] is not None]
     skipped = [row["excitation_type"] for row in rows if row["skipped"]]
     csv_path = _write_csv(rows, output_paths["csv"] / "excitation_results.csv")
     figure_path = _write_simple_png(
@@ -133,14 +147,24 @@ def run_excitation_validation(
     )
     expected_skips = set(str(item) for item in targets["skipped_for_reproduction"])
     skipped_expected = set(str(item) for item in skipped) == expected_skips
+    has_review = any(row.get("pass_fail_status") == "review" for row in rows)
+    if has_review:
+        overall_status = "review"
+        overall_trend = "one or more excitation simulations became numerically invalid"
+    elif skipped_expected:
+        overall_status = "pass"
+        overall_trend = "EV1/EVR skipped in exact mode"
+    else:
+        overall_status = "fail"
+        overall_trend = "skip set differs from paper target"
     summary = {
         "validation": "excitation",
         "plant_id": plant_id,
         "rows": rows,
         "paper_targets": targets,
         "skipped_profiles": skipped,
-        "pass_fail_status": "pass" if skipped_expected else "fail",
-        "trend_status": "EV1/EVR skipped in exact mode" if skipped_expected else "skip set differs from paper target",
+        "pass_fail_status": overall_status,
+        "trend_status": overall_trend,
         "csv_path": csv_path,
         "figure_path": figure_path,
     }

@@ -70,3 +70,24 @@ def test_p01_baseline_simulation_runs_without_nan(tmp_path: Path):
     ]
     for row in result.rows:
         assert all(isfinite(float(row[column])) for column in numeric_columns)
+
+
+def test_et1_excitation_changes_logged_reference_after_2s(tmp_path: Path):
+    result = run_multirate_simulation(
+        MultirateSimulationConfig(
+            plant_id="P01",
+            duration_s=2.02,
+            Tlog_s=1.0,
+            excitation_type="ET1",
+            Kp_star=100.0,
+            output_name="et1_refs.csv",
+        ),
+        output_dir=tmp_path,
+    )
+
+    by_time = {round(float(row["time_s"]), 2): row for row in result.rows}
+    assert float(by_time[0.0]["Tref1"]) == 12.0
+    assert float(by_time[1.0]["Tref1"]) == 12.0
+    assert float(by_time[2.0]["Tref1"]) == 14.4
+    assert float(by_time[2.0]["Tref2"]) == 12.0
+    assert float(by_time[2.0]["Tref3"]) == 12.0

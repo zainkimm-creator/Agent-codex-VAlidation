@@ -14,7 +14,7 @@ from backend.validation.validate_excitation import DEFAULT_OUTPUT_ROOT, run_exci
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run excitation-profile validation.")
     parser.add_argument("--plant-id", default="P01")
-    parser.add_argument("--duration-s", type=float, default=0.2)
+    parser.add_argument("--duration-s", type=float, default=None)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     args = parser.parse_args()
 

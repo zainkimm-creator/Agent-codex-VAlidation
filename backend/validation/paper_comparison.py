@@ -217,9 +217,9 @@ def _artifact_record(name: str, rows: list[dict[str, Any]], points: list[str], d
     csv_path = OUTPUT_DIR / "csv" / f"{name}_paper_comparison.csv"
     summary_path = base / f"{name}_paper_comparison.json"
     statuses = {str(row.get("status", "")).lower() for row in rows}
-    if "missing" in statuses:
+    if statuses == {"missing"}:
         overall_status = "missing"
-    elif "review" in statuses:
+    elif "review" in statuses or "missing" in statuses:
         overall_status = "review"
     elif "pass" in statuses:
         overall_status = "pass"
@@ -448,7 +448,7 @@ def ensure_paper_comparison_outputs(output_root: Path = OUTPUT_DIR) -> dict[str,
 
     global OUTPUT_DIR
     previous_output_dir = OUTPUT_DIR
-    OUTPUT_DIR = output_root
+    OUTPUT_DIR = output_root.resolve()
     try:
         targets = _read_yaml(CONFIG_DIR / "paper_targets.yaml")
         return {
