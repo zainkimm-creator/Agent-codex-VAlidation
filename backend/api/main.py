@@ -29,6 +29,7 @@ from backend.validation.calculations import (
 )
 from backend.validation.excitations import excitation_names, get_excitation_profile
 from backend.validation.parts import run_part_1_parameter_validation, validation_parts_registry
+from backend.validation.paper_comparison import ensure_paper_comparison_outputs
 from backend.validation.plants import DEFAULT_PLANT_ID, parameters_for_plant, plant_registry
 from backend.validation.studies import (
     drift_study,
@@ -175,6 +176,8 @@ def _dashboard_output_page(
     csv_relative: str | None = None,
     plot_relative: str | None = None,
     table_rows: list[dict[str, Any]] | None = None,
+    result_points: list[str] | None = None,
+    display_mode: str = "table",
 ) -> dict[str, Any]:
     summary_path = OUTPUT_DIR / summary_relative if summary_relative else None
     csv_path = OUTPUT_DIR / csv_relative if csv_relative else None
@@ -205,6 +208,10 @@ def _dashboard_output_page(
         "dashboard_result": dashboard_result,
         "pass_fail": pass_fail,
         "trend_status": trend_status,
+        "result_points": result_points or [trend_status],
+        "display_mode": display_mode,
+        "input_rows": _rows_from_mapping(input_config),
+        "paper_rows": _rows_from_mapping(paper_target),
         "table_rows": available_rows,
         "output_files": {
             "json": _file_descriptor(summary_path),
@@ -403,10 +410,11 @@ def dashboard_outputs_route() -> dict[str, object]:
     noise_config = _read_yaml_config("noise_lpf.yaml")
     paper_targets = _read_yaml_config("paper_targets.yaml")
     equations = equation_summary()
+    comparisons = ensure_paper_comparison_outputs(OUTPUT_DIR)
 
     output_manifest = [
         {
-            "label": "logging summary",
+            "label": "logging validation summary",
             "type": "json",
             **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "logging_validation.json"),
         },
@@ -416,12 +424,17 @@ def dashboard_outputs_route() -> dict[str, object]:
             **_file_descriptor(OUTPUT_DIR / "csv" / "logging_results.csv"),
         },
         {
-            "label": "logging plot",
-            "type": "png",
-            **_file_descriptor(OUTPUT_DIR / "figures" / "tlog_vs_rmse.png"),
+            "label": "logging paper comparison",
+            "type": "svg",
+            **_file_descriptor(OUTPUT_DIR / "figures" / "logging_paper_comparison.svg"),
         },
         {
-            "label": "excitation summary",
+            "label": "logging comparison CSV",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "logging_paper_comparison.csv"),
+        },
+        {
+            "label": "excitation validation summary",
             "type": "json",
             **_file_descriptor(OUTPUT_DIR / "validation_runs" / "latest" / "excitation_validation.json"),
         },
@@ -431,9 +444,34 @@ def dashboard_outputs_route() -> dict[str, object]:
             **_file_descriptor(OUTPUT_DIR / "csv" / "excitation_results.csv"),
         },
         {
-            "label": "excitation plot",
-            "type": "png",
-            **_file_descriptor(OUTPUT_DIR / "figures" / "excitation_bar.png"),
+            "label": "excitation paper comparison",
+            "type": "svg",
+            **_file_descriptor(OUTPUT_DIR / "figures" / "excitation_paper_comparison.svg"),
+        },
+        {
+            "label": "excitation comparison CSV",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "excitation_paper_comparison.csv"),
+        },
+        {
+            "label": "noise/lpf comparison CSV",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "noise_lpf_paper_comparison.csv"),
+        },
+        {
+            "label": "drift paper comparison",
+            "type": "svg",
+            **_file_descriptor(OUTPUT_DIR / "figures" / "drift_paper_comparison.svg"),
+        },
+        {
+            "label": "drift comparison CSV",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "drift_paper_comparison.csv"),
+        },
+        {
+            "label": "retuning comparison CSV",
+            "type": "csv",
+            **_file_descriptor(OUTPUT_DIR / "csv" / "retuning_paper_comparison.csv"),
         },
     ]
 
@@ -449,6 +487,8 @@ def dashboard_outputs_route() -> dict[str, object]:
                 "plant_count": len(plants_config.get("plants", {})) if isinstance(plants_config.get("plants"), dict) else 0,
             },
             table_rows=_plant_table_rows(plants_config),
+            result_points=["P01-P10 plant parameters are loaded from YAML.", "Use this page as the plant input table."],
+            display_mode="table",
         ),
         _dashboard_output_page(
             page_id="model-equations",
@@ -462,6 +502,8 @@ def dashboard_outputs_route() -> dict[str, object]:
             },
             paper_target=paper_targets.get("simulation", {}) if isinstance(paper_targets, dict) else {},
             table_rows=equations.get("units") if isinstance(equations.get("units"), list) else None,
+            result_points=["State and input order match the implemented mathematical model."],
+            display_mode="table",
         ),
         _dashboard_output_page(
             page_id="controller",
@@ -469,6 +511,8 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="u_i = Kvel_i*(omega_ref_i - omega_i) + u_ff_i",
             input_config=default_config.get("controller", {}) if isinstance(default_config, dict) else {},
             paper_target=paper_targets.get("kp_targets", {}) if isinstance(paper_targets, dict) else {},
+            result_points=["Cascade PI plus feedforward is implemented.", "Kp_star targets are read from paper_targets.yaml."],
+            display_mode="table",
         ),
         _dashboard_output_page(
             page_id="sysid-setup",
@@ -476,6 +520,8 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="theta = [kt_UW, kt_Nip, kt_RW, kf_UW, kf_Nip, kf_RW, EA]",
             input_config=default_config.get("sysid", {}) if isinstance(default_config, dict) else {},
             paper_target=paper_targets.get("sysid", {}) if isinstance(paper_targets, dict) else {},
+            result_points=["Seven-parameter TRF least-squares SysID is implemented."],
+            display_mode="table",
         ),
         _dashboard_output_page(
             page_id="logging-validation",
@@ -483,9 +529,11 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="RMSE_theta = mean(abs((theta_hat - theta_true) / theta_true))",
             input_config={"logging_rate_ms": validation_config.get("logging_rate_ms")},
             paper_target=paper_targets.get("logging_targets", {}) if isinstance(paper_targets, dict) else {},
-            summary_relative="validation_runs/latest/logging_validation.json",
-            csv_relative="csv/logging_results.csv",
-            plot_relative="figures/tlog_vs_rmse.png",
+            summary_relative=comparisons["logging"]["relative_summary"],
+            csv_relative=comparisons["logging"]["relative_csv"],
+            plot_relative=comparisons["logging"]["relative_plot"],
+            result_points=comparisons["logging"]["result_points"],
+            display_mode=comparisons["logging"]["display_mode"],
         ),
         _dashboard_output_page(
             page_id="excitation-validation",
@@ -493,9 +541,11 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="T_ref_i(t) = T_ref_i*(1 + 0.20*step_i(t))",
             input_config=excitation_config,
             paper_target=paper_targets.get("excitation_targets", {}) if isinstance(paper_targets, dict) else {},
-            summary_relative="validation_runs/latest/excitation_validation.json",
-            csv_relative="csv/excitation_results.csv",
-            plot_relative="figures/excitation_bar.png",
+            summary_relative=comparisons["excitation"]["relative_summary"],
+            csv_relative=comparisons["excitation"]["relative_csv"],
+            plot_relative=comparisons["excitation"]["relative_plot"],
+            result_points=comparisons["excitation"]["result_points"],
+            display_mode=comparisons["excitation"]["display_mode"],
         ),
         _dashboard_output_page(
             page_id="noise-lpf-validation",
@@ -503,9 +553,11 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="T_meas = LPF_100Hz(T_true + N(0, (0.003*T_max)^2))",
             input_config=noise_config,
             paper_target=paper_targets.get("noise_lpf_targets", {}) if isinstance(paper_targets, dict) else {},
-            summary_relative="validation_runs/latest/noise_lpf_validation.json",
-            csv_relative="csv/noise_lpf_results.csv",
-            plot_relative="figures/noise_lpf_validation.png",
+            summary_relative=comparisons["noise_lpf"]["relative_summary"],
+            csv_relative=comparisons["noise_lpf"]["relative_csv"],
+            plot_relative=comparisons["noise_lpf"]["relative_plot"],
+            result_points=comparisons["noise_lpf"]["result_points"],
+            display_mode=comparisons["noise_lpf"]["display_mode"],
         ),
         _dashboard_output_page(
             page_id="drift-validation",
@@ -513,9 +565,11 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="theta_drift = theta_nominal*(1 + delta)",
             input_config={"drift_scenarios": validation_config.get("drift_scenarios")},
             paper_target=paper_targets.get("drift_targets", {}) if isinstance(paper_targets, dict) else {},
-            summary_relative="validation_runs/latest/drift_validation.json",
-            csv_relative="csv/drift_results.csv",
-            plot_relative="figures/drift_validation.png",
+            summary_relative=comparisons["drift"]["relative_summary"],
+            csv_relative=comparisons["drift"]["relative_csv"],
+            plot_relative=comparisons["drift"]["relative_plot"],
+            result_points=comparisons["drift"]["result_points"],
+            display_mode=comparisons["drift"]["display_mode"],
         ),
         _dashboard_output_page(
             page_id="retuning-validation",
@@ -523,9 +577,11 @@ def dashboard_outputs_route() -> dict[str, object]:
             formula="cost = w_RMSE*RMSE + w_OS*overshoot + w_t*t90 + w_u*effort",
             input_config=default_config.get("retuning", {}) if isinstance(default_config, dict) else {},
             paper_target=paper_targets.get("retuning_targets", {}) if isinstance(paper_targets, dict) else {},
-            summary_relative="validation_runs/latest/retuning_validation.json",
-            csv_relative="csv/retuning_results.csv",
-            plot_relative="figures/retuning_validation.png",
+            summary_relative=comparisons["retuning"]["relative_summary"],
+            csv_relative=comparisons["retuning"]["relative_csv"],
+            plot_relative=comparisons["retuning"]["relative_plot"],
+            result_points=comparisons["retuning"]["result_points"],
+            display_mode=comparisons["retuning"]["display_mode"],
         ),
         _dashboard_output_page(
             page_id="export-report",
@@ -535,6 +591,8 @@ def dashboard_outputs_route() -> dict[str, object]:
             paper_target={"source": "configs/paper_targets.yaml", "sections": list(paper_targets.keys())},
             csv_relative="csv/logging_results.csv",
             table_rows=output_manifest,
+            result_points=["Use the CSV and plot links on each validation page for export."],
+            display_mode="table",
         ),
     ]
 

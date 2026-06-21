@@ -59,7 +59,15 @@ def test_dashboard_outputs_route_returns_required_pages():
     assert "formula" in logging_page
     assert "paper_target" in logging_page
     assert "dashboard_result" in logging_page
+    assert logging_page["display_mode"] == "graph"
+    assert logging_page["result_points"]
     assert "csv" in logging_page["output_files"]
+    assert logging_page["output_files"]["csv"]["url"].endswith("logging_paper_comparison.csv")
+    assert logging_page["output_files"]["plot"]["url"].endswith("logging_paper_comparison.svg")
+
+    noise_page = payload["pages"][6]
+    assert noise_page["display_mode"] == "table"
+    assert noise_page["output_files"]["csv"]["url"].endswith("noise_lpf_paper_comparison.csv")
 
 
 def test_simulate_route_returns_metrics_and_csv_path():

@@ -1098,7 +1098,8 @@ h3 {
 }
 
 .status-badge.trend,
-.status-badge.skipped {
+.status-badge.skipped,
+.status-badge.review {
   background: #986b25;
 }
 
@@ -1138,10 +1139,24 @@ h3 {
   align-items: start;
 }
 
+.visual-grid.single-visual {
+  grid-template-columns: 1fr;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.point-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: #394649;
+  line-height: 1.45;
+  font-size: 13px;
 }
 
 .plot-panel {

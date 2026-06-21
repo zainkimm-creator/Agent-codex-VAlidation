@@ -37,32 +37,24 @@ function StatusBadge({ status }) {
   return <span className={`status-badge ${String(status || 'missing').toLowerCase()}`}>{status || 'missing'}</span>;
 }
 
-function formatJson(value) {
-  if (value === null || value === undefined) return 'No data';
-  return JSON.stringify(value, null, 2);
-}
-
-function resultOverview(result) {
-  if (!result || typeof result !== 'object') return {};
-  const keys = [
-    'validation',
-    'plant_id',
-    'status',
-    'pass_fail_status',
-    'trend_status',
-    'best_Tlog_ms',
-    'best_RMSE_theta',
-    'skipped_profiles',
-    'expected_summary',
-  ];
-  return Object.fromEntries(keys.filter((key) => key in result).map((key) => [key, result[key]]));
-}
-
-function JsonPanel({ title, value }) {
+function KeyValuePanel({ title, rows }) {
   return (
     <section className="panel data-panel">
       <h2>{title}</h2>
-      <pre className="json-block">{formatJson(value)}</pre>
+      <MetricTable rows={rows} />
+    </section>
+  );
+}
+
+function PointsPanel({ points }) {
+  return (
+    <section className="panel data-panel">
+      <h2>Dashboard Result</h2>
+      <ul className="point-list">
+        {(points?.length ? points : ['No result points available.']).map((point) => (
+          <li key={point}>{point}</li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -102,7 +94,9 @@ function ArtifactLinks({ page, baseUrl }) {
 function PageView({ page, baseUrl }) {
   const plotFile = page.output_files?.plot;
   const plotUrl = plotFile?.available ? artifactUrl(baseUrl, plotFile.url) : null;
-  const overview = resultOverview(page.dashboard_result);
+  const displayMode = page.display_mode ?? 'table';
+  const showGraph = displayMode === 'graph' || displayMode === 'both';
+  const showTable = displayMode === 'table' || displayMode === 'both' || !plotUrl;
 
   return (
     <div className="dashboard-page">
@@ -119,30 +113,31 @@ function PageView({ page, baseUrl }) {
       </section>
 
       <section className="detail-grid">
-        <JsonPanel title="Input Config" value={page.input_config} />
-        <JsonPanel title="Paper Target" value={page.paper_target} />
-        <section className="panel data-panel">
-          <h2>Dashboard Result</h2>
-          {Object.keys(overview).length > 0 ? <MetricTable rows={overview} /> : <pre className="json-block">{formatJson(page.dashboard_result)}</pre>}
-        </section>
+        <KeyValuePanel title="Input Config" rows={page.input_rows} />
+        <KeyValuePanel title="Paper Target" rows={page.paper_rows} />
+        <PointsPanel points={page.result_points} />
         <ArtifactLinks page={page} baseUrl={baseUrl} />
       </section>
 
-      <section className="visual-grid">
-        <section className="panel table-panel">
-          <div className="section-heading">
-            <Table2 size={18} />
-            <h2>Table</h2>
-          </div>
-          <MetricTable rows={page.table_rows} />
-        </section>
-        <section className="panel plot-panel">
-          <div className="section-heading">
-            <ImageIcon size={18} />
-            <h2>Plot</h2>
-          </div>
-          {plotUrl ? <img src={plotUrl} alt={`${page.title} plot`} /> : <div className="missing-plot">No plot output found.</div>}
-        </section>
+      <section className={`visual-grid ${showGraph && !showTable ? 'single-visual' : ''}`}>
+        {showTable && (
+          <section className="panel table-panel">
+            <div className="section-heading">
+              <Table2 size={18} />
+              <h2>Table</h2>
+            </div>
+            <MetricTable rows={page.table_rows} />
+          </section>
+        )}
+        {showGraph && (
+          <section className="panel plot-panel">
+            <div className="section-heading">
+              <ImageIcon size={18} />
+              <h2>Graph</h2>
+            </div>
+            {plotUrl ? <img src={plotUrl} alt={`${page.title} graph`} /> : <div className="missing-plot">No graph output found.</div>}
+          </section>
+        )}
       </section>
     </div>
   );
