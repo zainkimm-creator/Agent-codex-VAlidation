@@ -1,0 +1,55 @@
+# configs/paper_targets.yaml
+# Main numeric targets from the main paper/supplement, plus professor corrections.
+
+simulation:
+  dt_ms: 1
+  Ts_ms: 10
+  Tlog_sweep_ms: [1, 2, 5, 10, 20, 50, 100]
+
+sysid:
+  theta_names: [kt_UW, kt_Nip, kt_RW, kf_UW, kf_Nip, kf_RW, EA]
+  RMSE_theta_formula: "mean_i(abs((theta_hat_i - theta_true_i) / theta_true_i)) * 100"
+
+logging_targets:
+  NF_rule: "tau_min / Tlog >= 5"
+  NF_Tlog_ms_for_published_excitations: 5
+  SN_Tlog_ms_for_published_excitations: 20
+  SN_best_Tlog_ms: [10, 20]
+  SN_reference_RMSE_theta_percent_at_20ms: 23.2
+
+excitation_targets:
+  NF_RMSE_theta_percent:
+    ET1: 2.5
+    E_Toggle: 3.4
+    ET6: 3.4
+    ET3: 3.5
+  SN_RMSE_theta_percent:
+    E_Toggle: 20.4
+    ET6: 21.0
+    ET3: 22.2
+    ET3M: 22.8
+    ET1: 31.4
+  skipped_for_reproduction: [EVR, EV1]
+
+noise_lpf_targets:
+  min_LPF_Hz: 50
+  reproduction_LPF_Hz: 100
+  influence_ranking: [LPF, Tlog, excitation, noise_level]
+
+kp_targets:
+  Kp_star_values: [50, 100, 200]
+  default_Kp_star: 100
+  high_noise_Kp_star: 200
+
+drift_targets:
+  EA_saturation_RMSE_range_percent: [15, 18]
+  J_UW_minus30_RW_plus50_RMSE_NF_percent: 26.8
+  J_UW_minus50_RW_plus100_RMSE_NF_percent: 39.3
+  f_drift_RMSE_range_percent: [20, 21]
+
+retuning_targets:
+  CS_BO_30: {real_evals: 30, median_cost: 0.407}
+  WS_BO_30: {real_evals: 30, median_cost: 0.408}
+  HGS_only: {real_evals: 0, median_cost: 0.403}
+  HGS_BO_5: {real_evals: 5, median_cost: 0.342}
+  HGS_BO_10: {real_evals: 10, median_cost: 0.337}
